@@ -1,12 +1,6 @@
 import { OnRpcRequestHandler } from '@metamask/snaps-types';
 import { panel, text } from '@metamask/snaps-ui';
 
-
-async function getFees() {
-  const response = await fetch('https://beaconcha.in/api/v1/execution/gasnow'); 
-  return response.text();
-}
-
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
  *
@@ -19,18 +13,19 @@ async function getFees() {
  */
 export const onRpcRequest: OnRpcRequestHandler = ({ origin, request }) => {
   switch (request.method) {
-    case 'getGas':
-      return getFees().then(fees => {
-        return snap.request({
-          method: 'snap_dialog',
-          params: {
-            type: 'Alert',
-            content: panel([
-              text(`Hello, **${origin}**!`),
-              text(`Current gas fee estimates: ${fees}`),
-            ])
-          }
-        })
+    case 'hello':
+      return snap.request({
+        method: 'snap_dialog',
+        params: {
+          type: 'confirmation',
+          content: panel([
+            text(`Hello, **${origin}**!`),
+            text('This custom confirmation is just for display purposes.'),
+            text(
+              'But you can edit the snap source code to make it do something, if you want to!',
+            )
+          ])
+        }
       })
 
       // case 'payWithCUSD':
@@ -56,7 +51,6 @@ export const onRpcRequest: OnRpcRequestHandler = ({ origin, request }) => {
         //         util.payWithCREAL(...)
         //       })
         //     })
-
 
     default:
       throw new Error('Method not found.');

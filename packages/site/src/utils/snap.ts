@@ -54,10 +54,10 @@ export const getSnap = async (version?: string): Promise<Snap | undefined> => {
  * Invoke the "hello" method from the example snap.
  */
 
-export const getGas = async () => {
+export const sendHello = async () => {
   await window.ethereum.request({
     method: 'wallet_invokeSnap',
-    params: { snapId: defaultSnapOrigin, request: { method: 'getGas' } },
+    params: { snapId: defaultSnapOrigin, request: { method: 'hello' } },
   });
 };
 
