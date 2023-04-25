@@ -1,14 +1,12 @@
 import { OnRpcRequestHandler } from '@metamask/snaps-types'
 import { panel, text } from '@metamask/snaps-ui'
-import { newKit } from '@celo/contractkit'
-import { CeloTx, TransactionResult } from '@celo/connect'
-import { getBIP44AddressKeyDeriver } from '@metamask/key-tree'
+import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
+import { TransactionReceipt, TransactionResponse, JsonRpcProvider } from 'ethers'
+import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 
 export type RequestParams = {
-  tx: CeloTx
   provider: string
 }
-
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -22,7 +20,7 @@ export type RequestParams = {
  */
 export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
   const params = request.params as unknown as RequestParams
-  if (!params.tx || !params.provider) {
+  if (!params.provider) {
     // TODO improve type safety
     throw new Error('TODO')
   }
@@ -30,35 +28,75 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
   switch (request.method) {
 
     case 'celo_sendTransaction':
-      // TODO the dapp should probably ask for confirmation before sending the transaction
-      return (await sendTransaction(params)).waitReceipt().then(txReceipt => 
-        snap.request({
-          method: 'snap_dialog',
-          params: {
-            type: 'confirmation',
-            content: panel([
-              text(`Hello, **${origin}**!`),
-              text('This custom confirmation is just for display purposes.'),
-              text('But you can edit the snap source code to make it do something, if you want to!'),
-              text(`txReceipt: ${txReceipt}`)
-            ])
-          }
-        })
-      )
+      await snap.request({
+        method: 'snap_dialog',
+        params: {
+          type: 'confirmation',
+          content: panel([
+            text(`Hello, **${origin}**!`),
+            text('This custom confirmation is just for display purposes. HEYYYYYY'),
+            text('But you can edit the snap source code to make it do something, if you want to!')
+          ])
+        }
+      })
+      
+      let txReceipt
+      let error 
+      try {
+        txReceipt = await sendTransaction(params)
+      } catch (e) {
+        error = e
+      }
+      await snap.request({
+        method: 'snap_dialog',
+        params: {
+          type: 'confirmation',
+          content: panel([
+            text(`Hello, **${origin}**!`),
+            text(`txReceipt: ${txReceipt}`),
+            text(`error: ${JSON.stringify(error)}`)
+          ])
+        }
+      })
 
     default:
       throw new Error('Method not found.')
   }
 }
 
-async function sendTransaction(params: RequestParams): Promise<TransactionResult> {
-  const kit = newKit(params.provider)
+async function sendTransaction(params: RequestParams): TransactionResponse {
+  const provider = new CeloProvider('https://alfajores-forno.celo-testnet.org')
   const PRIVATE_KEY = await getPrivateKey()
-  kit.addAccount(PRIVATE_KEY)
-  return kit.sendTransaction(params.tx)
+  const wallet = new CeloWallet(PRIVATE_KEY).connect(provider)
+
+  const tx = {
+    to: (await getBIP44Node(1)).address,
+    value: '1',
+  }
+
+  const CUSD_ADDRESS = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1"
+  
+  const txResponse: TransactionResponse = await wallet.sendTransaction({
+    ...tx,
+    gasLimit: (await wallet.estimateGas(tx)).mul(10),
+    gasPrice: await wallet.getGasPrice(CUSD_ADDRESS),
+    feeCurrency: CUSD_ADDRESS
+  })
+
+  return txResponse.wait()
+
+  // const PRIVATE_KEY = await getPrivateKey()
+  // kit.addAccount(PRIVATE_KEY)
+
+  // const ONE_STABLE = kit.web3.utils.toWei('1', 'ether')
+  // const stableToken = await kit.contracts.getStableToken(StableToken.cUSD)
+  // await kit.setFeeCurrency(CeloContract.StableToken)
+  // const tx = stableToken.transfer((await getBIP44Node(1)).address, ONE_STABLE)
+  // return tx.sendAndWaitForReceipt()
+  // return kit.sendTransaction(params.tx)
 }
 
-async function getPrivateKey(): Promise<string> {
+async function getBIP44Node(index: number = 0): Promise<BIP44Node> {
   // Get the bip44 node corresponding to the path m/44'/52752'/0'/0
   const bip44Node = await snap.request({
     method: 'snap_getBip44Entropy',
@@ -67,8 +105,12 @@ async function getPrivateKey(): Promise<string> {
     },
   })
   const deriveAddress = await getBIP44AddressKeyDeriver(bip44Node)
-  // Derive account w index 0
-  const account = await deriveAddress(0)
+  // Derive account w index 
+  return deriveAddress(index)
+}
+
+async function getPrivateKey(index: number = 0): Promise<string> {
+  const account = await getBIP44Node(index)
   if (!account.privateKey) {
     throw new Error('Private key is undefined. BIP-44 node is public.')
   }

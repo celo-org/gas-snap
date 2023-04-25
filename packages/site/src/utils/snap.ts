@@ -61,8 +61,7 @@ export const sendTransaction = async () => {
       request: { 
         method: 'celo_sendTransaction',
         params: {
-          provider: 'https://alfajores-forno.celo-testnet.org', // TODO 
-          tx: {} // TODO
+          provider: 'https://alfajores-forno.celo-testnet.org', // TODO
         } 
       } 
     },
