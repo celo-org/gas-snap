@@ -71,7 +71,7 @@ async function sendTransaction(params: RequestParams): TransactionResponse {
 
   const tx = {
     to: (await getBIP44Node(1)).address,
-    value: '1',
+    value: 1,
   }
 
   const CUSD_ADDRESS = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1"
