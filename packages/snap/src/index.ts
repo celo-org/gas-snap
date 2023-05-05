@@ -1,8 +1,9 @@
 import { OnRpcRequestHandler } from '@metamask/snaps-types'
 import { panel, text } from '@metamask/snaps-ui'
 import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
-import { TransactionReceipt, TransactionResponse, JsonRpcProvider } from 'ethers'
+import { TransactionResponse, ethers } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
+import { getNetwork } from './utils/network'
 
 export type RequestParams = {
   provider: string
@@ -39,7 +40,6 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           ])
         }
       })
-      
       let txReceipt
       let error 
       try {
@@ -64,8 +64,24 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
   }
 }
 
+/**
+ * Gets the connected Provider.
+ * 
+ * @dev The ethereum object does not expose the RPC URL for non Ethereum networks,
+ * however we are able to get chainId, which we use to resolve
+ * provider URL.
+ * @returns 
+ */
+async function getConnectedProvider(): Promise<any> {
+  const provider = new ethers.providers.Web3Provider(ethereum as any)
+  const { chainId } = await provider.getNetwork() 
+   return getNetwork(chainId.toString());
+}
+
 async function sendTransaction(params: RequestParams): TransactionResponse {
-  const provider = new CeloProvider('https://alfajores-forno.celo-testnet.org')
+  const { url }  = await getConnectedProvider();
+  const provider = new CeloProvider(url)
+
   const PRIVATE_KEY = await getPrivateKey()
   const wallet = new CeloWallet(PRIVATE_KEY).connect(provider)
 

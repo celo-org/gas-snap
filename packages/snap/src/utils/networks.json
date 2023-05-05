@@ -1,0 +1,8 @@
+{
+    "44787": {
+        "name": "Celo Alfajores",
+        "chainId": "44787",
+        "url": "https://alfajores-forno.celo-testnet.org",
+        "enabled": true
+    }
+}
