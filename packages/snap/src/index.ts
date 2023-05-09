@@ -5,6 +5,7 @@ import { TransactionResponse, ethers } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 import { getNetwork } from './utils/network'
 
+
 export type RequestParams = {
   provider: string
 }
@@ -64,23 +65,12 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
   }
 }
 
-/**
- * Gets the connected Provider.
- * 
- * @dev The ethereum object does not expose the RPC URL for non Ethereum networks,
- * however we are able to get chainId, which we use to resolve
- * provider URL.
- * @returns 
- */
-async function getConnectedProvider(): Promise<any> {
-  const provider = new ethers.providers.Web3Provider(ethereum as any)
-  const { chainId } = await provider.getNetwork() 
-   return getNetwork(chainId.toString());
-}
-
 async function sendTransaction(params: RequestParams): TransactionResponse {
-  const { url }  = await getConnectedProvider();
-  const provider = new CeloProvider(url)
+  const chainId = await ethereum.request({ method: 'eth_chainId' });
+
+  const network =   getNetwork(String(chainId));
+
+  const provider = new CeloProvider(network.url)
 
   const PRIVATE_KEY = await getPrivateKey()
   const wallet = new CeloWallet(PRIVATE_KEY).connect(provider)
