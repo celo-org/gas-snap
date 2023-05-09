@@ -67,11 +67,8 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
 
 async function sendTransaction(params: RequestParams): TransactionResponse {
   const chainId = await ethereum.request({ method: 'eth_chainId' });
-
   const network =   getNetwork(String(chainId));
-
   const provider = new CeloProvider(network.url)
-
   const PRIVATE_KEY = await getPrivateKey()
   const wallet = new CeloWallet(PRIVATE_KEY).connect(provider)
 
