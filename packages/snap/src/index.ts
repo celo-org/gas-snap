@@ -1,13 +1,18 @@
 import { OnRpcRequestHandler } from '@metamask/snaps-types'
 import { panel, text } from '@metamask/snaps-ui'
 import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
-import { TransactionResponse, ethers } from 'ethers'
+import { ethers } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
-import { getNetwork } from './utils/network'
+// import { getNetwork } from './utils/network'
 
+type SimpleTransaction = {
+  to: string
+  from: string
+  value: string
+}
 
 export type RequestParams = {
-  provider: string
+  tx: SimpleTransaction // TODO replace with better type
 }
 
 /**
@@ -21,82 +26,78 @@ export type RequestParams = {
  * @throws If the request method is not valid for this snap, or if the request params are invalid. 
  */
 export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
-  const params = request.params as unknown as RequestParams
-  if (!params.provider) {
-    // TODO improve type safety
-    throw new Error('TODO')
+  // const params = request.params as unknown as RequestParams  // TODO improve type safety
+
+  const { address } = await getBIP44Node()
+
+  const params: RequestParams = {
+    tx: {
+      to: (await getBIP44Node(1)).address,
+      from: address,
+      value: ethers.utils.parseUnits("1", "wei").toHexString(),
+    }
   }
 
   switch (request.method) {
 
     case 'celo_sendTransaction':
-      await snap.request({
+      const result = await snap.request({
         method: 'snap_dialog',
         params: {
           type: 'confirmation',
           content: panel([
             text(`Hello, **${origin}**!`),
-            text('This custom confirmation is just for display purposes. HEYYYYYY'),
-            text('But you can edit the snap source code to make it do something, if you want to!')
+            text('Please approve the following transaction'),
+            text(`tx: ${JSON.stringify(params.tx)}`)
           ])
         }
       })
-      let txReceipt
-      let error 
-      try {
-        txReceipt = await sendTransaction(params)
-      } catch (e) {
-        error = e
+
+      if (result === true) {
+        let txReceipt
+        let error
+        try {
+          txReceipt = await sendTransaction(params)
+        } catch (e) {
+          error = e
+        }
+        await snap.request({
+          method: 'snap_dialog',
+          params: {
+            type: 'alert',
+            content: panel([
+              text(`Hello, **${origin}**!`),
+              text(`txReceipt: ${JSON.stringify(txReceipt)}`),
+              text(`error: ${JSON.stringify(error)}`),
+            ])
+          }
+        })
       }
-      await snap.request({
-        method: 'snap_dialog',
-        params: {
-          type: 'confirmation',
-          content: panel([
-            text(`Hello, **${origin}**!`),
-            text(`txReceipt: ${txReceipt}`),
-            text(`error: ${JSON.stringify(error)}`)
-          ])
-        }
-      })
 
     default:
       throw new Error('Method not found.')
   }
 }
 
-async function sendTransaction(params: RequestParams): TransactionResponse {
-  const chainId = await ethereum.request({ method: 'eth_chainId' });
-  const network =   getNetwork(String(chainId));
-  const provider = new CeloProvider(network.url)
-  const PRIVATE_KEY = await getPrivateKey()
-  const wallet = new CeloWallet(PRIVATE_KEY).connect(provider)
-
-  const tx = {
-    to: (await getBIP44Node(1)).address,
-    value: 1,
-  }
+async function sendTransaction(params: RequestParams) {
+  // const chainId = await ethereum.request({ method: 'eth_chainId' })
+  // const network =   getNetwork(String(chainId))
+  // const provider = new CeloProvider(network.url) TODO fix error 'could not detect network' that appears when this code is uncommented
+  const provider = new CeloProvider('https://alfajores-forno.celo-testnet.org')
+  const bip44Node = await getBIP44Node()
+  const privateKey = await getPrivateKey(bip44Node)
+  const wallet = new CeloWallet(privateKey).connect(provider)
 
   const CUSD_ADDRESS = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1"
   
-  const txResponse: TransactionResponse = await wallet.sendTransaction({
-    ...tx,
-    gasLimit: (await wallet.estimateGas(tx)).mul(10),
+  const txResponse = await wallet.sendTransaction({
+    ...params.tx,
+    gasLimit: (await wallet.estimateGas(params.tx)).mul(10),
     gasPrice: await wallet.getGasPrice(CUSD_ADDRESS),
     feeCurrency: CUSD_ADDRESS
   })
 
   return txResponse.wait()
-
-  // const PRIVATE_KEY = await getPrivateKey()
-  // kit.addAccount(PRIVATE_KEY)
-
-  // const ONE_STABLE = kit.web3.utils.toWei('1', 'ether')
-  // const stableToken = await kit.contracts.getStableToken(StableToken.cUSD)
-  // await kit.setFeeCurrency(CeloContract.StableToken)
-  // const tx = stableToken.transfer((await getBIP44Node(1)).address, ONE_STABLE)
-  // return tx.sendAndWaitForReceipt()
-  // return kit.sendTransaction(params.tx)
 }
 
 async function getBIP44Node(index: number = 0): Promise<BIP44Node> {
@@ -112,10 +113,12 @@ async function getBIP44Node(index: number = 0): Promise<BIP44Node> {
   return deriveAddress(index)
 }
 
-async function getPrivateKey(index: number = 0): Promise<string> {
-  const account = await getBIP44Node(index)
-  if (!account.privateKey) {
+async function getPrivateKey(bip44Node?: BIP44Node, index: number = 0): Promise<string> {
+  if (!bip44Node) {
+    bip44Node = await getBIP44Node(index)
+  }
+  if (!bip44Node.privateKey) {
     throw new Error('Private key is undefined. BIP-44 node is public.')
   }
-  return account.privateKey
+  return bip44Node.privateKey
 }
