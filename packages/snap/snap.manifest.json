@@ -1,13 +1,13 @@
 {
   "version": "0.1.0",
   "description": "An example Snap written in TypeScript.",
-  "proposedName": "TypeScript Example Snap",
+  "proposedName": "Celo Gas Snap",
   "repository": {
     "type": "git",
-    "url": "https://github.com/MetaMask/template-snap-monorepo.git"
+    "url": "https://github.com/celo-org/gas-snap.git"
   },
   "source": {
-    "shasum": "BjB7jLGJrCVQ6fEkLkKdGkwUGcu9g8/ZAl/je+J1OVY=",
+    "shasum": "JSlX59OvOwY2y2JwgonjP9kXb1205wMglT88Cm3Q6P4=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",

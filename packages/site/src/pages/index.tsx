@@ -117,7 +117,7 @@ const Index = () => {
     }
   };
 
-  const handleSendHelloClick = async () => {
+  const handleSendTransactionClick = async () => {
     try {
       await sendTransaction();
     } catch (e) {
@@ -129,10 +129,10 @@ const Index = () => {
   return (
     <Container>
       <Heading>
-        Welcome to <Span>template-snap</Span>
+        Welcome to <Span>gas-snap</Span>
       </Heading>
       <Subtitle>
-        Get started by editing <code>src/index.ts</code>
+        A MetaMask Snap for sending Celo transactions with alternate gas currencies
       </Subtitle>
       <CardContainer>
         {state.error && (
@@ -185,12 +185,12 @@ const Index = () => {
         )}
         <Card
           content={{
-            title: 'Send Hello message',
+            title: 'Send Transaction',
             description:
-              'Display a custom message within a confirmation screen in MetaMask.',
+              'Send a demo transaction on alfajores.',
             button: (
               <SendHelloButton
-                onClick={handleSendHelloClick}
+                onClick={handleSendTransactionClick}
                 disabled={!state.installedSnap}
               />
             ),
@@ -202,14 +202,6 @@ const Index = () => {
             !shouldDisplayReconnectButton(state.installedSnap)
           }
         />
-        <Notice>
-          <p>
-            Please note that the <b>snap.manifest.json</b> and{' '}
-            <b>package.json</b> must be located in the server root directory and
-            the bundle must be hosted at the location specified by the location
-            field.
-          </p>
-        </Notice>
       </CardContainer>
     </Container>
   );
