@@ -3,7 +3,7 @@ import { panel, text } from '@metamask/snaps-ui'
 import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
 import { ethers } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
-// import { getNetwork } from './utils/network'
+import { getNetwork } from './utils/network'
 
 type SimpleTransaction = {
   to: string
@@ -80,10 +80,9 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
 }
 
 async function sendTransaction(params: RequestParams) {
-  // const chainId = await ethereum.request({ method: 'eth_chainId' })
-  // const network =   getNetwork(String(chainId))
-  // const provider = new CeloProvider(network.url) TODO fix error 'could not detect network' that appears when this code is uncommented
-  const provider = new CeloProvider('https://alfajores-forno.celo-testnet.org')
+  const chainId = await ethereum.request({ method: 'eth_chainId' })
+  const network =   getNetwork(String(chainId))
+  const provider = new CeloProvider(network.url)
   const bip44Node = await getBIP44Node()
   const privateKey = await getPrivateKey(bip44Node)
   const wallet = new CeloWallet(privateKey).connect(provider)
