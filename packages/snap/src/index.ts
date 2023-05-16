@@ -3,6 +3,7 @@ import { panel, text } from '@metamask/snaps-ui'
 import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
 import { ethers } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
+import { getNetwork } from './utils/network'
 // import { getNetwork } from './utils/network'
 
 type SimpleTransaction = {
@@ -80,15 +81,15 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
 }
 
 async function sendTransaction(params: RequestParams) {
-  // const chainId = await ethereum.request({ method: 'eth_chainId' })
-  // const network =   getNetwork(String(chainId))
-  // const provider = new CeloProvider(network.url) TODO fix error 'could not detect network' that appears when this code is uncommented
-  const provider = new CeloProvider('https://alfajores-forno.celo-testnet.org')
+  const chainId = await ethereum.request({ method: 'eth_chainId' })
+  const network =   getNetwork(String(chainId))
+  const provider = new CeloProvider(network.url) // TODO fix error 'could not detect network' that appears when this code is uncommented
+  // const provider = new CeloProvider('https://alfajores-forno.celo-testnet.org')
   const bip44Node = await getBIP44Node()
   const privateKey = await getPrivateKey(bip44Node)
   const wallet = new CeloWallet(privateKey).connect(provider)
 
-  const CUSD_ADDRESS = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1"
+  const CUSD_ADDRESS = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1" // TODO make this dynamic by newtwork
   
   const txResponse = await wallet.sendTransaction({
     ...params.tx,

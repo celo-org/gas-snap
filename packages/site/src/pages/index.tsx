@@ -113,7 +113,7 @@ const Index = () => {
       });
     } catch (e) {
       console.error(e);
-      dispatch({ type: MetamaskActions.SetError, payload: e });
+      dispatch({ type: MetamaskActions.SetError, payload: e }); 
     }
   };
 
@@ -122,7 +122,7 @@ const Index = () => {
       await sendTransaction();
     } catch (e) {
       console.error(e);
-      dispatch({ type: MetamaskActions.SetError, payload: e });
+      dispatch({ type: MetamaskActions.SetError, payload: e }); 
     }
   };
 

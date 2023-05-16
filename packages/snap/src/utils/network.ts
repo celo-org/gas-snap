@@ -9,7 +9,7 @@ const networks = [{
     "name": "Celo Mainnet",
     "chainIdHex": "0xa4ec",
     "chainIdDecimal": 42220,
-    "url": "https://celo-mainnet.infura.io"
+    "url": "https://forno.celo.org"
 }
 ]
 
