@@ -113,7 +113,7 @@ const Index = () => {
       });
     } catch (e) {
       console.error(e);
-      dispatch({ type: MetamaskActions.SetError, payload: e }); 
+      // dispatch({ type: MetamaskActions.SetError, payload: e }); // TODO wait for issue to be fixed https://github.com/MetaMask/template-snap-monorepo/issues/45
     }
   };
 
@@ -122,7 +122,7 @@ const Index = () => {
       await sendTransaction();
     } catch (e) {
       console.error(e);
-      dispatch({ type: MetamaskActions.SetError, payload: e }); 
+      // dispatch({ type: MetamaskActions.SetError, payload: e }); // TODO wait for issue to be fixed https://github.com/MetaMask/template-snap-monorepo/issues/46
     }
   };
 
