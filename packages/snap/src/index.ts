@@ -1,15 +1,14 @@
 import { OnRpcRequestHandler } from '@metamask/snaps-types'
-import { panel, text } from '@metamask/snaps-ui'
+import { panel, text, copyable } from '@metamask/snaps-ui'
 import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
 import { ethers } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
-import { getNetwork } from './utils/network'
-// import { getNetwork } from './utils/network'
+import { Network, getNetwork } from './utils/network'
 
 type SimpleTransaction = {
   to: string
-  from: string
   value: string
+  feeCurrency?: string
 }
 
 export type RequestParams = {
@@ -27,17 +26,7 @@ export type RequestParams = {
  * @throws If the request method is not valid for this snap, or if the request params are invalid. 
  */
 export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
-  // const params = request.params as unknown as RequestParams  // TODO improve type safety
-
-  const { address } = await getBIP44Node()
-
-  const params: RequestParams = {
-    tx: {
-      to: (await getBIP44Node(1)).address,
-      from: address,
-      value: ethers.utils.parseUnits("1", "wei").toHexString(),
-    }
-  }
+  const params = request.params as unknown as RequestParams  // TODO improve type safety
 
   switch (request.method) {
 
@@ -47,32 +36,66 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
         params: {
           type: 'confirmation',
           content: panel([
-            text(`Hello, **${origin}**!`),
             text('Please approve the following transaction'),
-            text(`tx: ${JSON.stringify(params.tx)}`)
+            text(`to: ${params.tx.to}`),
+            text(`value: ${params.tx.value} wei`)
           ])
         }
       })
 
+      const network = await getNetworkConfig()
+
       if (result === true) {
-        let txReceipt
-        let error
-        try {
-          txReceipt = await sendTransaction(params)
-        } catch (e) {
-          error = e
-        }
-        await snap.request({
+
+        params.tx.feeCurrency ??= await getOptimalFeeCurrency(params.tx)
+        const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(params.tx.feeCurrency)
+
+        const overrideFeeCurrency = await snap.request({
           method: 'snap_dialog',
           params: {
-            type: 'alert',
+            type: 'prompt',
             content: panel([
-              text(`Hello, **${origin}**!`),
-              text(`txReceipt: ${JSON.stringify(txReceipt)}`),
-              text(`error: ${JSON.stringify(error)}`),
-            ])
+              text(`The suggested gas currency for your tx is ${suggestedFeeCurrency}`),
+              text(`If you would like to use a different gas currency, please enter it below`),
+              text(`Otherwise, press submit`)
+            ]),
+            placeholder: `'cusd', 'ceur', 'creal', 'celo'`
           }
         })
+
+        if ( // TODO find a cleaner way to do this, probably use an enum 
+          overrideFeeCurrency === 'cusd' ||
+          overrideFeeCurrency === 'ceur' ||
+          overrideFeeCurrency === 'creal' ||
+          overrideFeeCurrency === 'celo'  
+        ) {
+          params.tx.feeCurrency = getFeeCurrencyAddressFromName(overrideFeeCurrency)
+        }
+
+        try {
+          const txReceipt = await sendTransaction(params)
+          await snap.request({
+            method: 'snap_dialog',
+            params: {
+              type: 'alert',
+              content: panel([
+                text(`Your transaction succeeded!`),
+                copyable(`${network.explorer}/tx/${txReceipt.transactionHash}`)
+              ])
+            }
+          })
+        } catch (error) {
+          await snap.request({
+            method: 'snap_dialog',
+            params: {
+              type: 'alert',
+              content: panel([
+                text(`Your transaction failed!`),
+                text(`error: ${JSON.stringify(error)}`)
+              ])
+            }
+          })
+        }
       }
 
     default:
@@ -80,22 +103,23 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
   }
 }
 
+async function getNetworkConfig(): Promise<Network> {
+  const chainId = await ethereum.request({ method: 'eth_chainId' }) as string
+  return getNetwork(chainId) // TODO
+}
+
 async function sendTransaction(params: RequestParams) {
-  const chainId = await ethereum.request({ method: 'eth_chainId' })
-  const network =   getNetwork(String(chainId))
-  const provider = new CeloProvider(network.url) // TODO fix error 'could not detect network' that appears when this code is uncommented
-  // const provider = new CeloProvider('https://alfajores-forno.celo-testnet.org')
+  const network = await getNetworkConfig()
+  const provider = new CeloProvider(network.url)
   const bip44Node = await getBIP44Node()
   const privateKey = await getPrivateKey(bip44Node)
   const wallet = new CeloWallet(privateKey).connect(provider)
-
-  const CUSD_ADDRESS = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1" // TODO make this dynamic by newtwork
   
   const txResponse = await wallet.sendTransaction({
     ...params.tx,
-    gasLimit: (await wallet.estimateGas(params.tx)).mul(10),
-    gasPrice: await wallet.getGasPrice(CUSD_ADDRESS),
-    feeCurrency: CUSD_ADDRESS
+    value: ethers.utils.parseUnits(params.tx.value, 'wei').toHexString(),
+    gasLimit: (await wallet.estimateGas(params.tx)).mul(5),
+    gasPrice: await wallet.getGasPrice(params.tx.feeCurrency)
   })
 
   return txResponse.wait()
@@ -122,4 +146,57 @@ async function getPrivateKey(bip44Node?: BIP44Node, index: number = 0): Promise<
     throw new Error('Private key is undefined. BIP-44 node is public.')
   }
   return bip44Node.privateKey
+}
+
+/**
+ * Finds the optimal gas currency to send a transaction with based on user balances. 
+ * This may differ from the feeCurrency specified in the transaction body. 
+ * 
+ * The returned feeCurrency will be Celo if the user has enough balance 
+ * to pay for the transaction in Celo, as native transactions are cheaper. 
+ * Otherwise, the returned feeCurrency will be whichever one the user would 
+ * have the greatest balance in after sending the transaction.
+ *
+ * @param tx - The transaction to select the optimal gas currency for
+ * @returns - The address of the optimal feeCurrency, or undefined if the optimal 
+ * feeCurrency is Celo. 
+ */
+async function getOptimalFeeCurrency(tx: SimpleTransaction): Promise<string | undefined> {
+  // TODO
+  return undefined
+}
+
+// TODO find a better way to do this
+function getFeeCurrencyNameFromAddress(feeCurrencyAddress: string | undefined): string {
+  switch (feeCurrencyAddress) {
+    case undefined:
+      return 'celo'
+    case '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1':
+      return 'cusd'
+    case '0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F':
+      return 'ceur'
+    case '0xE4D517785D091D3c54818832dB6094bcc2744545':
+      return 'creal'
+    default:
+      throw new Error(
+        `Fee currency address ${feeCurrencyAddress} not recognized.`
+      )
+  }
+}
+
+function getFeeCurrencyAddressFromName(feeCurrencyName: string): string | undefined {
+  switch (feeCurrencyName) {
+    case 'celo':
+      return undefined
+    case 'cusd':
+      return '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1' // TODO make this dynamic by network, currently just for alfajores
+    case 'ceur':
+      return '0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F'
+    case 'creal':
+      return '0xE4D517785D091D3c54818832dB6094bcc2744545'
+    default:
+      throw new Error(
+        `Fee currency string ${feeCurrencyName} not recognized. Must be either 'celo', 'cusd', 'ceur' or 'creal'.`
+      )
+  }
 }

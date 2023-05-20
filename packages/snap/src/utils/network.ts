@@ -4,12 +4,14 @@ const networks = [{
     "name": "Celo Alfajores",
     "chainIdHex": "0xaef3",
     "chainIdDecimal": 44787,
-    "url": "https://alfajores-forno.celo-testnet.org"
+    "url": "https://alfajores-forno.celo-testnet.org",
+    "explorer": "https://explorer.celo.org/alfajores"
 }, {
     "name": "Celo Mainnet",
     "chainIdHex": "0xa4ec",
     "chainIdDecimal": 42220,
-    "url": "https://forno.celo.org"
+    "url": "https://forno.celo.org",
+    "explorer": "https://explorer.celo.org/mainnet"
 }
 ]
 
@@ -17,7 +19,8 @@ export interface Network {
     name: string;
     chainIdHex: string,
     chainIdDecimal: number,
-    url: string
+    url: string,
+    explorer: string
 }
 
 export const getNetwork = (chainId: string): Network => {

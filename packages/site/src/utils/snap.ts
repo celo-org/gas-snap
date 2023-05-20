@@ -50,7 +50,7 @@ export const getSnap = async (version?: string): Promise<Snap | undefined> => {
   }
 };
 
-export const sendTransaction = async () => {
+export const sendTransaction = async (to: string, value: string) => {
   await window.ethereum.request({
     method: 'wallet_invokeSnap',
     params: { 
@@ -58,8 +58,8 @@ export const sendTransaction = async () => {
       request: { 
         method: 'celo_sendTransaction',
         params: {
-          provider: 'https://alfajores-forno.celo-testnet.org', // TODO
-        } 
+          tx: { to, value }
+        }
       } 
     },
   });

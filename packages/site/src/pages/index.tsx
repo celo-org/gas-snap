@@ -1,6 +1,7 @@
 import { useContext } from 'react';
 import styled from 'styled-components';
 import { MetamaskActions, MetaMaskContext } from '../hooks';
+import { ethers } from 'ethers';
 import {
   connectSnap,
   getSnap,
@@ -119,7 +120,17 @@ const Index = () => {
 
   const handleSendTransactionClick = async () => {
     try {
-      await sendTransaction();
+      // const accounts = await window.ethereum.request({ method: 'eth_accounts' }) as string[]
+      // MetaMask currently returns at most one account in the accounts array. 
+      // The array may contain more than one account in the future. 
+      // The first account in the array will always be considered the user's "selected" account.
+      // https://docs.metamask.io/wallet/get-started/access-accounts
+      // TODO address the fact that this "selected" account is different from the one the snap uses to send the tx
+      await sendTransaction(
+        // accounts[0],
+        '0x3a404155a41cd28578041d041e7de86941ceaab7',
+        ethers.utils.parseUnits("1", "wei").toString()
+      );
     } catch (e) {
       console.error(e);
       // dispatch({ type: MetamaskActions.SetError, payload: e }); // TODO wait for issue to be fixed https://github.com/MetaMask/template-snap-monorepo/issues/46
