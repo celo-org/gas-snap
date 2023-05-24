@@ -51,7 +51,6 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
 
       if (result === true) {
         params.tx.feeCurrency ??= await getOptimalFeeCurrency(params.tx, wallet)
-        console.log("params.tx.feeCurrency=>", params.tx.feeCurrency)
         const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(params.tx.feeCurrency)
 
         const overrideFeeCurrency = await snap.request({
@@ -177,7 +176,7 @@ async function getOptimalFeeCurrency(tx: SimpleTransaction, wallet: CeloWallet):
 
     const balances = await Promise.allSettled(promises);
     let values = balances.map((a: any) => Number(a.value));
-    const index = values.indexOf(Math.max(...values))
+    const index = values.indexOf(Math.max(...values)) // Todo we may need to find a way to consult oracles to do some conversions.
 
     return addresses[index];
   } 
