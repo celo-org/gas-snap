@@ -1,9 +1,10 @@
 import { OnRpcRequestHandler } from '@metamask/snaps-types'
 import { panel, text, copyable } from '@metamask/snaps-ui'
 import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
-import { ethers } from 'ethers'
+import { ethers, Contract } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
+import { STABLE_TOKEN_ABI } from './stableToken'
 
 type SimpleTransaction = {
   to: string
@@ -27,6 +28,11 @@ export type RequestParams = {
  */
 export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
   const params = request.params as unknown as RequestParams  // TODO improve type safety
+  const network = await getNetworkConfig()
+  const provider = new CeloProvider(network.url)
+  const bip44Node = await getBIP44Node()
+  const privateKey = await getPrivateKey(bip44Node)
+  const wallet = new CeloWallet(privateKey).connect(provider)
 
   switch (request.method) {
 
@@ -43,11 +49,9 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
         }
       })
 
-      const network = await getNetworkConfig()
-
       if (result === true) {
-
-        params.tx.feeCurrency ??= await getOptimalFeeCurrency(params.tx)
+        params.tx.feeCurrency ??= await getOptimalFeeCurrency(params.tx, wallet)
+        console.log("params.tx.feeCurrency=>", params.tx.feeCurrency)
         const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(params.tx.feeCurrency)
 
         const overrideFeeCurrency = await snap.request({
@@ -73,7 +77,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
         }
 
         try {
-          const txReceipt = await sendTransaction(params)
+          const txReceipt = await sendTransaction(params, wallet)
           await snap.request({
             method: 'snap_dialog',
             params: {
@@ -108,12 +112,7 @@ async function getNetworkConfig(): Promise<Network> {
   return getNetwork(chainId) // TODO
 }
 
-async function sendTransaction(params: RequestParams) {
-  const network = await getNetworkConfig()
-  const provider = new CeloProvider(network.url)
-  const bip44Node = await getBIP44Node()
-  const privateKey = await getPrivateKey(bip44Node)
-  const wallet = new CeloWallet(privateKey).connect(provider)
+async function sendTransaction(params: RequestParams, wallet: CeloWallet) {
   
   const txResponse = await wallet.sendTransaction({
     ...params.tx,
@@ -161,9 +160,28 @@ async function getPrivateKey(bip44Node?: BIP44Node, index: number = 0): Promise<
  * @returns - The address of the optimal feeCurrency, or undefined if the optimal 
  * feeCurrency is Celo. 
  */
-async function getOptimalFeeCurrency(tx: SimpleTransaction): Promise<string | undefined> {
-  // TODO
-  return undefined
+async function getOptimalFeeCurrency(tx: SimpleTransaction, wallet: CeloWallet): Promise<string | undefined> {
+  const gasLimit = (await wallet.estimateGas(tx)).mul(5)
+  const celoBalance = await wallet.getBalance();
+  const addresses = [ //get this dynamically based on network.
+    "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1",
+    "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F",
+    "0xE4D517785D091D3c54818832dB6094bcc2744545"
+  ]; 
+  if (gasLimit >= celoBalance) {
+    let promises = [] as any;
+    addresses.forEach(async (address) => {
+      const token = new Contract(address, STABLE_TOKEN_ABI, wallet);
+      promises.push(token.balanceOf(wallet.address))
+    })
+
+    const balances = await Promise.allSettled(promises);
+    let values = balances.map((a: any) => Number(a.value));
+    const index = values.indexOf(Math.max(...values))
+
+    return addresses[index];
+  } 
+  return undefined;
 }
 
 // TODO find a better way to do this
