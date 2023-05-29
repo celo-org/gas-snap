@@ -12,6 +12,11 @@ type SimpleTransaction = {
   feeCurrency?: string
 }
 
+type StableTokenBalance = {
+  value: string
+  token: string
+}
+
 export type RequestParams = {
   tx: SimpleTransaction // TODO replace with better type
 }
@@ -174,9 +179,38 @@ async function getOptimalFeeCurrency(tx: SimpleTransaction, wallet: CeloWallet):
       promises.push(token.balanceOf(wallet.address))
     })
 
-    const balances = await Promise.allSettled(promises);
-    const values = balances.map((a: any) => Number(a.value));
-    const index = values.indexOf(Math.max(...values)) // Todo we may need to find a way to consult oracles to do some conversions.
+    const results = await Promise.allSettled(promises);
+    const balances: StableTokenBalance[] = [];
+
+    for (let i = 0; i < results.length; i++) {
+      switch (results[i].status) {
+        case "fulfilled":
+          console.info(
+            tx,
+            `Successfully retrieved stable token balance - address : ${addresses[i]}`
+          );
+          
+          balances.push({
+            // @ts-ignore: Property 'value' does not exist on type 'PromiseSettledResult<T>
+             value: results[i].value,
+             token: addresses[i]
+            })
+          break;
+
+        case "rejected":
+          console.error(
+            tx,
+            `Unable to retrieve balance for stable token balance - address : ${addresses[i]}`
+          );
+          break;
+
+        default:
+          throw new Error("Unexpected result status.");
+      }
+    }
+
+    const values = balances.map((balance: StableTokenBalance) => Number(balance.value));
+    const index = values.indexOf(Math.max(...values));
 
     return addresses[index];
   } 
