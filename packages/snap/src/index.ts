@@ -167,8 +167,8 @@ async function getOptimalFeeCurrency(tx: SimpleTransaction, wallet: CeloWallet):
     "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F",
     "0xE4D517785D091D3c54818832dB6094bcc2744545"
   ]; 
-  if (gasLimit >= celoBalance) {
-    let promises = [] as any;
+  if (gasLimit.add(tx.value) >= celoBalance) {
+    const promises = [] as any;
     addresses.forEach((address) => {
       const token = new Contract(address, STABLE_TOKEN_CONTRACT.abi, wallet);
       promises.push(token.balanceOf(wallet.address))
