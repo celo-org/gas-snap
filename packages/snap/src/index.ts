@@ -175,7 +175,7 @@ async function getOptimalFeeCurrency(tx: SimpleTransaction, wallet: CeloWallet):
     })
 
     const balances = await Promise.allSettled(promises);
-    let values = balances.map((a: any) => Number(a.value));
+    const values = balances.map((a: any) => Number(a.value));
     const index = values.indexOf(Math.max(...values)) // Todo we may need to find a way to consult oracles to do some conversions.
 
     return addresses[index];
