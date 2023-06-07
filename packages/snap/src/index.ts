@@ -4,16 +4,7 @@ import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
 import { ethers } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
-
-type SimpleTransaction = {
-  to: string
-  value: string
-  feeCurrency?: string
-}
-
-export type RequestParams = {
-  tx: SimpleTransaction // TODO replace with better type
-}
+import { RequestParams } from './utils/types'
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -26,7 +17,22 @@ export type RequestParams = {
  * @throws If the request method is not valid for this snap, or if the request params are invalid. 
  */
 export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
-  const params = request.params as unknown as RequestParams  // TODO improve type safety
+  const params = request.params as typeof RequestParams
+
+  if (!RequestParams.is(params)) {
+    await snap.request({
+      method: 'snap_dialog',
+      params: {
+        type: 'alert',
+        content: panel([
+          text(`Invalid Request!`),
+          text(`${JSON.stringify(params.tx)}`)
+        ])
+      }
+    })
+
+    return;
+  }
 
   switch (request.method) {
 
