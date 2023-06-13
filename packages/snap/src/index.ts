@@ -4,7 +4,8 @@ import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
 import { ethers, Contract } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
-import { STABLE_TOKEN_CONTRACT } from './constants'
+// import { STABLE_TOKEN_CONTRACT } from './constants'
+import { STABLE_TOKEN_ABI } from './abis/stableToken'
 
 type SimpleTransaction = {
   to: string
@@ -175,7 +176,10 @@ async function getOptimalFeeCurrency(tx: SimpleTransaction, wallet: CeloWallet):
   if (gasLimit.add(tx.value) >= celoBalance) {
     const promises: Promise<unknown>[] = [];
     addresses.forEach((address) => {
-      const token = new Contract(address, STABLE_TOKEN_CONTRACT.abi, wallet);
+      
+      // const token = new Contract(address, STABLE_TOKEN_CONTRACT.abi, wallet);
+      const token = new Contract(address, STABLE_TOKEN_ABI, wallet);
+
       promises.push(token.balanceOf(wallet.address))
     })
 
