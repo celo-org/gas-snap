@@ -6,20 +6,11 @@ import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
 // import { STABLE_TOKEN_CONTRACT } from './constants'
 import { STABLE_TOKEN_ABI } from './abis/stableToken'
-
-type SimpleTransaction = {
-  to: string
-  value: string
-  feeCurrency?: string
-}
+import { RequestParams } from './utils/types'
 
 type StableTokenBalance = {
   value: string
   token: string
-}
-
-export type RequestParams = {
-  tx: SimpleTransaction // TODO replace with better type
 }
 
 /**
@@ -33,13 +24,28 @@ export type RequestParams = {
  * @throws If the request method is not valid for this snap, or if the request params are invalid. 
  */
 export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
-  const params = request.params as unknown as RequestParams  // TODO improve type safety
+  const params = request.params as unknown as typeof RequestParams   
   const network = await getNetworkConfig()
   const provider = new CeloProvider(network.url)
   const bip44Node = await getBIP44Node()
   const privateKey = await getPrivateKey(bip44Node)
   const wallet = new CeloWallet(privateKey).connect(provider)
 
+  if (!RequestParams.is(params)) {
+    await snap.request({
+      method: 'snap_dialog',
+      params: {
+        type: 'alert',
+        content: panel([
+          text(`Invalid Request!`),
+          text(`${JSON.stringify(params.tx)}`)
+        ])
+      }
+    })
+
+    return;
+  }
+  
   switch (request.method) {
 
     case 'celo_sendTransaction':
