@@ -1,14 +1,21 @@
 import { OnRpcRequestHandler } from '@metamask/snaps-types'
 import { panel, text, copyable } from '@metamask/snaps-ui'
 import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
-import { ethers } from 'ethers'
+import { ethers, Contract } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
+// import { STABLE_TOKEN_CONTRACT } from './constants'
+import { STABLE_TOKEN_ABI } from './abis/stableToken'
 
 type SimpleTransaction = {
   to: string
   value: string
   feeCurrency?: string
+}
+
+type StableTokenBalance = {
+  value: string
+  token: string
 }
 
 export type RequestParams = {
@@ -27,6 +34,11 @@ export type RequestParams = {
  */
 export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
   const params = request.params as unknown as RequestParams  // TODO improve type safety
+  const network = await getNetworkConfig()
+  const provider = new CeloProvider(network.url)
+  const bip44Node = await getBIP44Node()
+  const privateKey = await getPrivateKey(bip44Node)
+  const wallet = new CeloWallet(privateKey).connect(provider)
 
   switch (request.method) {
 
@@ -43,11 +55,8 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
         }
       })
 
-      const network = await getNetworkConfig()
-
       if (result === true) {
-
-        params.tx.feeCurrency ??= await getOptimalFeeCurrency(params.tx)
+        params.tx.feeCurrency ??= await getOptimalFeeCurrency(params.tx, wallet)
         const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(params.tx.feeCurrency)
 
         const overrideFeeCurrency = await snap.request({
@@ -73,7 +82,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
         }
 
         try {
-          const txReceipt = await sendTransaction(params)
+          const txReceipt = await sendTransaction(params, wallet)
           await snap.request({
             method: 'snap_dialog',
             params: {
@@ -108,12 +117,7 @@ async function getNetworkConfig(): Promise<Network> {
   return getNetwork(chainId) // TODO
 }
 
-async function sendTransaction(params: RequestParams) {
-  const network = await getNetworkConfig()
-  const provider = new CeloProvider(network.url)
-  const bip44Node = await getBIP44Node()
-  const privateKey = await getPrivateKey(bip44Node)
-  const wallet = new CeloWallet(privateKey).connect(provider)
+async function sendTransaction(params: RequestParams, wallet: CeloWallet) {
   
   const txResponse = await wallet.sendTransaction({
     ...params.tx,
@@ -161,9 +165,60 @@ async function getPrivateKey(bip44Node?: BIP44Node, index: number = 0): Promise<
  * @returns - The address of the optimal feeCurrency, or undefined if the optimal 
  * feeCurrency is Celo. 
  */
-async function getOptimalFeeCurrency(tx: SimpleTransaction): Promise<string | undefined> {
-  // TODO
-  return undefined
+async function getOptimalFeeCurrency(tx: SimpleTransaction, wallet: CeloWallet): Promise<string | undefined> {
+  const gasLimit = (await wallet.estimateGas(tx)).mul(5)
+  const celoBalance = await wallet.getBalance();
+  const addresses = [ //get this dynamically based on network.
+    "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1",
+    "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F",
+    "0xE4D517785D091D3c54818832dB6094bcc2744545"
+  ]; 
+  if (gasLimit.add(tx.value) >= celoBalance) {
+    const promises: Promise<unknown>[] = [];
+    addresses.forEach((address) => {
+      
+      // const token = new Contract(address, STABLE_TOKEN_CONTRACT.abi, wallet);
+      const token = new Contract(address, STABLE_TOKEN_ABI, wallet);
+
+      promises.push(token.balanceOf(wallet.address))
+    })
+
+    const results = await Promise.allSettled(promises);
+    const balances: StableTokenBalance[] = [];
+
+    for (let i = 0; i < results.length; i++) {
+      switch (results[i].status) {
+        case "fulfilled":
+          console.info(
+            tx,
+            `Successfully retrieved stable token balance - address : ${addresses[i]}`
+          );
+          
+          balances.push({
+            // @ts-ignore: Property 'value' does not exist on type 'PromiseSettledResult<T>
+             value: results[i].value,
+             token: addresses[i]
+            })
+          break;
+
+        case "rejected":
+          console.error(
+            tx,
+            `Unable to retrieve balance for stable token balance - address : ${addresses[i]}`
+          );
+          break;
+
+        default:
+          throw new Error("Unexpected result status.");
+      }
+    }
+
+    const values = balances.map((balance: StableTokenBalance) => Number(balance.value));
+    const index = values.indexOf(Math.max(...values));
+
+    return addresses[index];
+  } 
+  return undefined;
 }
 
 // TODO find a better way to do this
