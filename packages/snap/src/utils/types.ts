@@ -13,3 +13,8 @@ export const SimpleTransaction = t.intersection([
 export const RequestParams = t.type({
     tx:  SimpleTransaction
 })
+
+export type StableTokenBalance = {
+    value: string
+    token: string
+  }

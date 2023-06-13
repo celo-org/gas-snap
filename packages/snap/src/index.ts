@@ -6,12 +6,7 @@ import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
 // import { STABLE_TOKEN_CONTRACT } from './constants'
 import { STABLE_TOKEN_ABI } from './abis/stableToken'
-import { RequestParams } from './utils/types'
-
-type StableTokenBalance = {
-  value: string
-  token: string
-}
+import { RequestParams, StableTokenBalance } from './utils/types'
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
