@@ -1,11 +1,14 @@
 import { OnRpcRequestHandler } from '@metamask/snaps-types'
 import { panel, text, copyable } from '@metamask/snaps-ui'
 import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
-import { ethers, Contract } from 'ethers'
+import { ethers, Contract, BigNumber } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
 // import { STABLE_TOKEN_CONTRACT } from './constants'
 import { STABLE_TOKEN_ABI } from './abis/stableToken'
+import { REGISTRY_ABI } from './abis/Registry'
+import { SORTED_ORACLES_ABI } from './abis/SortedOracles'
+import { REGISTRY_ADDRESS } from './constants'
 
 type SimpleTransaction = {
   to: string
@@ -15,6 +18,12 @@ type SimpleTransaction = {
 
 type StableTokenBalance = {
   value: string
+  token: string
+}
+
+type SortedOraclesRates = {
+  numerator: BigNumber
+  denominator: BigNumber
   token: string
 }
 
@@ -166,6 +175,10 @@ async function getPrivateKey(bip44Node?: BIP44Node, index: number = 0): Promise<
  * feeCurrency is Celo. 
  */
 async function getOptimalFeeCurrency(tx: SimpleTransaction, wallet: CeloWallet): Promise<string | undefined> {
+  const registry = new Contract(REGISTRY_ADDRESS, REGISTRY_ABI, wallet); 
+  const sortedOraclesAddress = await registry.getAddressForString("SortedOracles");
+  const sortedOraclesContract = new Contract(sortedOraclesAddress, SORTED_ORACLES_ABI, wallet); 
+
   const gasLimit = (await wallet.estimateGas(tx)).mul(5)
   const celoBalance = await wallet.getBalance();
   const addresses = [ //get this dynamically based on network.
@@ -173,18 +186,50 @@ async function getOptimalFeeCurrency(tx: SimpleTransaction, wallet: CeloWallet):
     "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F",
     "0xE4D517785D091D3c54818832dB6094bcc2744545"
   ]; 
+
   if (gasLimit.add(tx.value) >= celoBalance) {
+    console.log("using stable token for gas")
     const promises: Promise<unknown>[] = [];
+    const promisesRate: Promise<Array<any>>[] = [];
     addresses.forEach((address) => {
-      
-      // const token = new Contract(address, STABLE_TOKEN_CONTRACT.abi, wallet);
       const token = new Contract(address, STABLE_TOKEN_ABI, wallet);
 
       promises.push(token.balanceOf(wallet.address))
+      promisesRate.push(sortedOraclesContract.medianRate(address))
     })
 
     const results = await Promise.allSettled(promises);
+    const ratesResults = await Promise.allSettled(promisesRate);
     const balances: StableTokenBalance[] = [];
+    const rates: SortedOraclesRates[] = [];
+
+    for (let i = 0; i < ratesResults.length; i++) {
+      switch (ratesResults[i].status) {
+        case "fulfilled":
+          console.info(
+            tx,
+            `Successfully retrieved oracles rate for - address : ${addresses[i]}`
+          );
+           // @ts-ignore: Property 'value' does not exist on type 'PromiseSettledResult<T>
+          const data = ratesResults[i].value as unknown as Array<BigNumber>;
+          rates.push({
+             numerator: data[0],
+             denominator: data[1],
+             token: addresses[i]
+            })
+          break;
+
+        case "rejected":
+          console.error(
+            tx,
+            `Unable to retrieve oracles rates for stable token - address : ${addresses[i]}`
+          );
+          break;
+
+        default:
+          throw new Error("Unexpected result status.");
+      }
+    }
 
     for (let i = 0; i < results.length; i++) {
       switch (results[i].status) {
@@ -196,7 +241,7 @@ async function getOptimalFeeCurrency(tx: SimpleTransaction, wallet: CeloWallet):
           
           balances.push({
             // @ts-ignore: Property 'value' does not exist on type 'PromiseSettledResult<T>
-             value: results[i].value,
+             value: rates[i].numerator.div(rates[i].denominator).mul(results[i].value),
              token: addresses[i]
             })
           break;
