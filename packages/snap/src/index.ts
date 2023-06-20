@@ -192,6 +192,8 @@ async function getOptimalFeeCurrency(tx: SimpleTransaction, wallet: CeloWallet):
     const promises: Promise<unknown>[] = [];
     const promisesRate: Promise<Array<any>>[] = [];
     addresses.forEach((address) => {
+      
+      // const token = new Contract(address, STABLE_TOKEN_CONTRACT.abi, wallet);
       const token = new Contract(address, STABLE_TOKEN_ABI, wallet);
 
       promises.push(token.balanceOf(wallet.address))
