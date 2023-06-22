@@ -33,7 +33,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
         type: 'alert',
         content: panel([
           text(`Invalid Request!`),
-          text(`${JSON.stringify(params.tx)}`)
+          text(`${JSON.stringify(request.params)}`)
         ])
       }
     })
