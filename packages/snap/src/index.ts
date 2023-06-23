@@ -87,7 +87,9 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
         }
 
         try {
+          console.log({tx})
           const txReceipt = await sendTransaction(tx, wallet)
+          // console.log({tx})
           await snap.request({
             method: 'snap_dialog',
             params: {
