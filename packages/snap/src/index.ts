@@ -1,35 +1,15 @@
 import { OnRpcRequestHandler } from '@metamask/snaps-types'
 import { panel, text, copyable } from '@metamask/snaps-ui'
-import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
-import { ethers, Contract, BigNumber } from 'ethers'
+import { CeloProvider, CeloTransactionRequest, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
+import { Contract, BigNumber } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
+import { RequestParams, RequestParamsSchema, StableTokenBalance, SortedOraclesRates } from './utils/types'
 // import { STABLE_TOKEN_CONTRACT } from './constants'
 import { STABLE_TOKEN_ABI } from './abis/stableToken'
 import { REGISTRY_ABI } from './abis/Registry'
 import { SORTED_ORACLES_ABI } from './abis/SortedOracles'
 import { REGISTRY_ADDRESS } from './constants'
-
-type SimpleTransaction = {
-  to: string
-  value: string
-  feeCurrency?: string
-}
-
-type StableTokenBalance = {
-  value: string
-  token: string
-}
-
-type SortedOraclesRates = {
-  numerator: BigNumber
-  denominator: BigNumber
-  token: string
-}
-
-export type RequestParams = {
-  tx: SimpleTransaction // TODO replace with better type
-}
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -41,14 +21,29 @@ export type RequestParams = {
  * @returns The result of `snap_dialog`.
  * @throws If the request method is not valid for this snap, or if the request params are invalid. 
  */
-export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
-  const params = request.params as unknown as RequestParams  // TODO improve type safety
+export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {   
   const network = await getNetworkConfig()
   const provider = new CeloProvider(network.url)
   const bip44Node = await getBIP44Node()
   const privateKey = await getPrivateKey(bip44Node)
   const wallet = new CeloWallet(privateKey).connect(provider)
+  if (!RequestParamsSchema.is(request.params)) {
+    await snap.request({
+      method: 'snap_dialog',
+      params: {
+        type: 'alert',
+        content: panel([
+          text(`Invalid Request!`),
+          text(`${JSON.stringify(request.params)}`)
+        ])
+      }
+    })
 
+    return
+  }
+
+  const tx: CeloTransactionRequest = request.params.tx
+  
   switch (request.method) {
 
     case 'celo_sendTransaction':
@@ -58,15 +53,15 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           type: 'confirmation',
           content: panel([
             text('Please approve the following transaction'),
-            text(`to: ${params.tx.to}`),
-            text(`value: ${params.tx.value} wei`)
+            text(`to: ${tx.to}`),
+            text(`value: ${tx.value} wei`)
           ])
         }
       })
 
       if (result === true) {
-        params.tx.feeCurrency ??= await getOptimalFeeCurrency(params.tx, wallet)
-        const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(params.tx.feeCurrency)
+        tx.feeCurrency ??= await getOptimalFeeCurrency(tx, wallet)
+        const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(tx.feeCurrency)
 
         const overrideFeeCurrency = await snap.request({
           method: 'snap_dialog',
@@ -87,11 +82,11 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           overrideFeeCurrency === 'creal' ||
           overrideFeeCurrency === 'celo'  
         ) {
-          params.tx.feeCurrency = getFeeCurrencyAddressFromName(overrideFeeCurrency)
+          tx.feeCurrency = getFeeCurrencyAddressFromName(overrideFeeCurrency)
         }
 
         try {
-          const txReceipt = await sendTransaction(params, wallet)
+          const txReceipt = await sendTransaction(tx, wallet)
           await snap.request({
             method: 'snap_dialog',
             params: {
@@ -126,13 +121,12 @@ async function getNetworkConfig(): Promise<Network> {
   return getNetwork(chainId) // TODO
 }
 
-async function sendTransaction(params: RequestParams, wallet: CeloWallet) {
+async function sendTransaction(tx: CeloTransactionRequest, wallet: CeloWallet) {
   
   const txResponse = await wallet.sendTransaction({
-    ...params.tx,
-    value: ethers.utils.parseUnits(params.tx.value, 'wei').toHexString(),
-    gasLimit: (await wallet.estimateGas(params.tx)).mul(5),
-    gasPrice: await wallet.getGasPrice(params.tx.feeCurrency)
+    ...tx,
+    gasLimit: (await wallet.estimateGas(tx)).mul(5),
+    gasPrice: await wallet.getGasPrice(tx.feeCurrency)
   })
 
   return txResponse.wait()
@@ -174,11 +168,10 @@ async function getPrivateKey(bip44Node?: BIP44Node, index: number = 0): Promise<
  * @returns - The address of the optimal feeCurrency, or undefined if the optimal 
  * feeCurrency is Celo. 
  */
-async function getOptimalFeeCurrency(tx: SimpleTransaction, wallet: CeloWallet): Promise<string | undefined> {
+async function getOptimalFeeCurrency(tx: CeloTransactionRequest, wallet: CeloWallet): Promise<string | undefined> {
   const registry = new Contract(REGISTRY_ADDRESS, REGISTRY_ABI, wallet); 
   const sortedOraclesAddress = await registry.getAddressForString("SortedOracles");
   const sortedOraclesContract = new Contract(sortedOraclesAddress, SORTED_ORACLES_ABI, wallet); 
-
   const gasLimit = (await wallet.estimateGas(tx)).mul(5)
   const celoBalance = await wallet.getBalance();
   const addresses = [ //get this dynamically based on network.
@@ -186,8 +179,8 @@ async function getOptimalFeeCurrency(tx: SimpleTransaction, wallet: CeloWallet):
     "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F",
     "0xE4D517785D091D3c54818832dB6094bcc2744545"
   ]; 
-
-  if (gasLimit.add(tx.value) >= celoBalance) {
+  
+  if (gasLimit.add(tx.value ?? 0) >= celoBalance) {
     console.log("using stable token for gas")
     const promises: Promise<unknown>[] = [];
     const promisesRate: Promise<Array<any>>[] = [];
