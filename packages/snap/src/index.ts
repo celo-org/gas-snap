@@ -186,9 +186,14 @@ async function getOptimalFeeCurrency(tx: CeloTransactionRequest, wallet: CeloWal
     ];
 
     const tokens: Contract[] = tokenAddresses.map((tokenAddress) => new Contract(tokenAddress, STABLE_TOKEN_ABI, wallet))
-    
-    const ratesResults = await Promise.allSettled(tokens.map((t) => sortedOraclesContract.medianRate(t.address) as BigNumber[]));
-    const balanceResults = await Promise.allSettled(tokens.map((t) => t.balanceOf(wallet.address) as BigNumber));
+
+    const [
+      ratesResults,
+      balanceResults
+    ] = await Promise.all([
+      Promise.allSettled(tokens.map((t) => sortedOraclesContract.medianRate(t.address) as BigNumber[])),
+      Promise.allSettled(tokens.map((t) => t.balanceOf(wallet.address) as BigNumber))
+    ])
 
     const tokenInfos: TokenInfo[] = []
 
