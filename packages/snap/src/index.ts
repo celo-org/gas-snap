@@ -174,6 +174,7 @@ async function getOptimalFeeCurrency(tx: CeloTransactionRequest, wallet: CeloWal
   const sortedOraclesAddress = await registry.getAddressForString("SortedOracles");
   const feeCurrencyWhitelistAddress = await registry.getAddressForString("FeeCurrencyWhitelist");
   const sortedOraclesContract = new Contract(sortedOraclesAddress, SORTED_ORACLES_ABI, wallet); 
+  const feeCurrencyWhitelistContract = new Contract(feeCurrencyWhitelistAddress, FEE_CURRENCY_WHITELIST_ABI, wallet); 
   const gasLimit = (await wallet.estimateGas(tx)).mul(5)
   const celoBalance = await wallet.getBalance();
   const addresses = await feeCurrencyWhitelistContract.getWhitelist();
