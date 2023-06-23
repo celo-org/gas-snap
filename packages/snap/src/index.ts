@@ -179,7 +179,7 @@ async function getOptimalFeeCurrency(tx: CeloTransactionRequest, wallet: CeloWal
   const celoBalance = await wallet.getBalance();
   const addresses = await feeCurrencyWhitelistContract.getWhitelist();
 
-  if (gasLimit.add(tx.value) >= celoBalance) {
+  if (gasLimit.add(tx.value ?? 0) >= celoBalance) {
     console.log("using stable token for gas")
     const promises: Promise<unknown>[] = [];
     const promisesRate: Promise<Array<any>>[] = [];
