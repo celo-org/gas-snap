@@ -9,6 +9,7 @@ import { RequestParams, RequestParamsSchema, StableTokenBalance, SortedOraclesRa
 import { STABLE_TOKEN_ABI } from './abis/stableToken'
 import { REGISTRY_ABI } from './abis/Registry'
 import { SORTED_ORACLES_ABI } from './abis/SortedOracles'
+import { FEE_CURRENCY_WHITELIST_ABI } from './abis/FeeCurrencyWhitelist'
 import { REGISTRY_ADDRESS } from './constants'
 
 /**
@@ -171,21 +172,19 @@ async function getPrivateKey(bip44Node?: BIP44Node, index: number = 0): Promise<
 async function getOptimalFeeCurrency(tx: CeloTransactionRequest, wallet: CeloWallet): Promise<string | undefined> {
   const registry = new Contract(REGISTRY_ADDRESS, REGISTRY_ABI, wallet); 
   const sortedOraclesAddress = await registry.getAddressForString("SortedOracles");
+  const feeCurrencyWhitelistAddress = await registry.getAddressForString("FeeCurrencyWhitelist");
   const sortedOraclesContract = new Contract(sortedOraclesAddress, SORTED_ORACLES_ABI, wallet); 
+  const feeCurrencyWhitelistContract = new Contract(feeCurrencyWhitelistAddress, FEE_CURRENCY_WHITELIST_ABI, wallet); 
   const gasLimit = (await wallet.estimateGas(tx)).mul(5)
   const celoBalance = await wallet.getBalance();
-  const addresses = [ //get this dynamically based on network.
-    "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1",
-    "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F",
-    "0xE4D517785D091D3c54818832dB6094bcc2744545"
-  ]; 
-  
-  if (gasLimit.add(tx.value ?? 0) >= celoBalance) {
+  const addresses = await feeCurrencyWhitelistContract.getWhitelist();
+
+  if (gasLimit.add(tx.value) >= celoBalance) {
     console.log("using stable token for gas")
     const promises: Promise<unknown>[] = [];
     const promisesRate: Promise<Array<any>>[] = [];
-    addresses.forEach((address) => {
-      
+    addresses.forEach((address: string) => {
+
       // const token = new Contract(address, STABLE_TOKEN_CONTRACT.abi, wallet);
       const token = new Contract(address, STABLE_TOKEN_ABI, wallet);
 
