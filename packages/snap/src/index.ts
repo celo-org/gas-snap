@@ -9,6 +9,7 @@ import { RequestParamsSchema, SortedOraclesRates, TokenInfo } from './utils/type
 import { STABLE_TOKEN_ABI } from './abis/stableToken'
 import { REGISTRY_ABI } from './abis/Registry'
 import { SORTED_ORACLES_ABI } from './abis/SortedOracles'
+import { FEE_CURRENCY_WHITELIST_ABI } from './abis/FeeCurrencyWhitelist'
 import { REGISTRY_ADDRESS } from './constants'
 
 /**
@@ -169,23 +170,18 @@ async function getPrivateKey(bip44Node?: BIP44Node, index: number = 0): Promise<
  * feeCurrency is Celo. 
  */
 async function getOptimalFeeCurrency(tx: CeloTransactionRequest, wallet: CeloWallet): Promise<string | undefined> {
+  const registry = new Contract(REGISTRY_ADDRESS, REGISTRY_ABI, wallet); 
+  const sortedOraclesAddress = await registry.getAddressForString("SortedOracles");
+  const feeCurrencyWhitelistAddress = await registry.getAddressForString("FeeCurrencyWhitelist");
+  const sortedOraclesContract = new Contract(sortedOraclesAddress, SORTED_ORACLES_ABI, wallet); 
+  const feeCurrencyWhitelistContract = new Contract(feeCurrencyWhitelistAddress, FEE_CURRENCY_WHITELIST_ABI, wallet); 
   const gasLimit = (await wallet.estimateGas(tx)).mul(5)
   const celoBalance = await wallet.getBalance();
-  
+  const tokenAddresses = await feeCurrencyWhitelistContract.getWhitelist();
+
   if (gasLimit.add(tx.value ?? 0) >= celoBalance) {
     console.log("using stable token for gas")
-
-    const registry = new Contract(REGISTRY_ADDRESS, REGISTRY_ABI, wallet); 
-    const sortedOraclesAddress = await registry.getAddressForString("SortedOracles");
-    const sortedOraclesContract = new Contract(sortedOraclesAddress, SORTED_ORACLES_ABI, wallet); 
-
-    const tokenAddresses = [ //get this dynamically based on network.
-      "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1",
-      "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F",
-      "0xE4D517785D091D3c54818832dB6094bcc2744545"
-    ];
-
-    const tokens: Contract[] = tokenAddresses.map((tokenAddress) => new Contract(tokenAddress, STABLE_TOKEN_ABI, wallet))
+    const tokens: Contract[] = tokenAddresses.map((tokenAddress: string) => new Contract(tokenAddress, STABLE_TOKEN_ABI, wallet))
 
     const [
       ratesResults,
@@ -209,7 +205,6 @@ async function getOptimalFeeCurrency(tx: CeloTransactionRequest, wallet: CeloWal
     }
 
     // TODO: consider edge case where the transaction itself sends a stable token 
-
     // sort in descending order
     const sortedTokenInfos = tokenInfos.sort((a, b) => b.value.sub(a.value).toNumber())
 

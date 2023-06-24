@@ -129,7 +129,7 @@ const Index = () => {
       await sendTransaction(
         // accounts[0],
         '0x3a404155a41cd28578041d041e7de86941ceaab7',
-        ethers.utils.parseUnits("1", "wei").toString()
+        Number(ethers.utils.parseUnits("1", "wei"))
       );
     } catch (e) {
       console.error(e);
