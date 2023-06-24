@@ -1,10 +1,10 @@
 import { OnRpcRequestHandler } from '@metamask/snaps-types'
 import { panel, text, copyable } from '@metamask/snaps-ui'
 import { CeloProvider, CeloTransactionRequest, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
-import { Contract, BigNumber } from 'ethers'
+import { Contract, BigNumber, ethers } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
-import { RequestParams, RequestParamsSchema, StableTokenBalance, SortedOraclesRates } from './utils/types'
+import { RequestParamsSchema, SortedOraclesRates, TokenInfo } from './utils/types'
 // import { STABLE_TOKEN_CONTRACT } from './constants'
 import { STABLE_TOKEN_ABI } from './abis/stableToken'
 import { REGISTRY_ABI } from './abis/Registry'
@@ -177,85 +177,38 @@ async function getOptimalFeeCurrency(tx: CeloTransactionRequest, wallet: CeloWal
   const feeCurrencyWhitelistContract = new Contract(feeCurrencyWhitelistAddress, FEE_CURRENCY_WHITELIST_ABI, wallet); 
   const gasLimit = (await wallet.estimateGas(tx)).mul(5)
   const celoBalance = await wallet.getBalance();
-  const addresses = await feeCurrencyWhitelistContract.getWhitelist();
+  const tokenAddresses = await feeCurrencyWhitelistContract.getWhitelist();
 
   if (gasLimit.add(tx.value ?? 0) >= celoBalance) {
     console.log("using stable token for gas")
-    const promises: Promise<unknown>[] = [];
-    const promisesRate: Promise<Array<any>>[] = [];
-    addresses.forEach((address: string) => {
+    const tokens: Contract[] = tokenAddresses.map((tokenAddress: string) => new Contract(tokenAddress, STABLE_TOKEN_ABI, wallet))
 
-      // const token = new Contract(address, STABLE_TOKEN_CONTRACT.abi, wallet);
-      const token = new Contract(address, STABLE_TOKEN_ABI, wallet);
+    const [
+      ratesResults,
+      balanceResults
+    ] = await Promise.all([
+      Promise.allSettled(tokens.map((t) => sortedOraclesContract.medianRate(t.address) as BigNumber[])),
+      Promise.allSettled(tokens.map((t) => t.balanceOf(wallet.address) as BigNumber))
+    ])
 
-      promises.push(token.balanceOf(wallet.address))
-      promisesRate.push(sortedOraclesContract.medianRate(address))
-    })
+    const tokenInfos: TokenInfo[] = []
 
-    const results = await Promise.allSettled(promises);
-    const ratesResults = await Promise.allSettled(promisesRate);
-    const balances: StableTokenBalance[] = [];
-    const rates: SortedOraclesRates[] = [];
-
-    for (let i = 0; i < ratesResults.length; i++) {
-      switch (ratesResults[i].status) {
-        case "fulfilled":
-          console.info(
-            tx,
-            `Successfully retrieved oracles rate for - address : ${addresses[i]}`
-          );
-           // @ts-ignore: Property 'value' does not exist on type 'PromiseSettledResult<T>
-          const data = ratesResults[i].value as unknown as Array<BigNumber>;
-          rates.push({
-             numerator: data[0],
-             denominator: data[1],
-             token: addresses[i]
-            })
-          break;
-
-        case "rejected":
-          console.error(
-            tx,
-            `Unable to retrieve oracles rates for stable token - address : ${addresses[i]}`
-          );
-          break;
-
-        default:
-          throw new Error("Unexpected result status.");
-      }
+    for (let i = 0; i < tokens.length; i++) {
+      const [address, ratesRes, balanceRes] = [tokens[i].address, ratesResults[i], balanceResults[i]]
+      const rates = ratesRes.status === "fulfilled" ? {
+        numerator: ratesRes.value[0],
+        denominator: ratesRes.value[1]
+      } as SortedOraclesRates : undefined
+      const balance = balanceRes.status === "fulfilled" ? balanceRes.value : undefined
+      const value = (rates && balance) ? balance.mul(rates.numerator.div(rates.denominator)) : ethers.constants.Zero
+      tokenInfos.push({ address, value, rates, balance })
     }
 
-    for (let i = 0; i < results.length; i++) {
-      switch (results[i].status) {
-        case "fulfilled":
-          console.info(
-            tx,
-            `Successfully retrieved stable token balance - address : ${addresses[i]}`
-          );
-          
-          balances.push({
-            // @ts-ignore: Property 'value' does not exist on type 'PromiseSettledResult<T>
-             value: rates[i].numerator.div(rates[i].denominator).mul(results[i].value),
-             token: addresses[i]
-            })
-          break;
+    // TODO: consider edge case where the transaction itself sends a stable token 
+    // sort in descending order
+    const sortedTokenInfos = tokenInfos.sort((a, b) => b.value.sub(a.value).toNumber())
 
-        case "rejected":
-          console.error(
-            tx,
-            `Unable to retrieve balance for stable token balance - address : ${addresses[i]}`
-          );
-          break;
-
-        default:
-          throw new Error("Unexpected result status.");
-      }
-    }
-
-    const values = balances.map((balance: StableTokenBalance) => Number(balance.value));
-    const index = values.indexOf(Math.max(...values));
-
-    return addresses[index];
+    return sortedTokenInfos[0].address;
   } 
   return undefined;
 }
