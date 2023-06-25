@@ -10,7 +10,7 @@ import { STABLE_TOKEN_ABI } from './abis/stableToken'
 import { REGISTRY_ABI } from './abis/Registry'
 import { SORTED_ORACLES_ABI } from './abis/SortedOracles'
 import { FEE_CURRENCY_WHITELIST_ABI } from './abis/FeeCurrencyWhitelist'
-import { REGISTRY_ADDRESS } from './constants'
+import { CELO_ALFAJORES, CELO_MAINNET, REGISTRY_ADDRESS } from './constants'
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -62,7 +62,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
 
       if (result === true) {
         tx.feeCurrency ??= await getOptimalFeeCurrency(tx, wallet)
-        const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(tx.feeCurrency)
+        const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(tx.feeCurrency, network.name)
 
         const overrideFeeCurrency = await snap.request({
           method: 'snap_dialog',
@@ -83,7 +83,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           overrideFeeCurrency === 'creal' ||
           overrideFeeCurrency === 'celo'  
         ) {
-          tx.feeCurrency = getFeeCurrencyAddressFromName(overrideFeeCurrency)
+          tx.feeCurrency = getFeeCurrencyAddressFromName(overrideFeeCurrency, network.name)
         }
 
         try {
@@ -213,37 +213,80 @@ async function getOptimalFeeCurrency(tx: CeloTransactionRequest, wallet: CeloWal
   return undefined;
 }
 
-// TODO find a better way to do this
-function getFeeCurrencyNameFromAddress(feeCurrencyAddress: string | undefined): string {
-  switch (feeCurrencyAddress) {
-    case undefined:
-      return 'celo'
-    case '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1':
-      return 'cusd'
-    case '0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F':
-      return 'ceur'
-    case '0xE4D517785D091D3c54818832dB6094bcc2744545':
-      return 'creal'
-    default:
-      throw new Error(
-        `Fee currency address ${feeCurrencyAddress} not recognized.`
-      )
+// TODO Retrieve this onchain, this would need Update to the FeeCurrencyWhitelist.sol
+// contract to also store currency name.
+function getFeeCurrencyNameFromAddress(feeCurrencyAddress: string | undefined, network: string): string {
+  switch (network) {
+      case CELO_ALFAJORES:
+          switch (feeCurrencyAddress) {
+              case undefined:
+                  return 'celo'
+              case '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1':
+                  return 'cusd'
+              case '0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F':
+                  return 'ceur'
+              case '0xE4D517785D091D3c54818832dB6094bcc2744545':
+                  return 'creal'
+              default:
+                  throw new Error(
+                      `Fee currency address ${feeCurrencyAddress} not recognized.`
+                  )
+          }             
+
+      case CELO_MAINNET:
+          switch (feeCurrencyAddress) {
+              case undefined:
+                  return 'celo'
+              case '0x765DE816845861e75A25fCA122bb6898B8B1282a':
+                  return 'cusd'
+              case '0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73':
+                  return 'ceur'
+              case '0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787':
+                  return 'creal'
+              default:
+                  throw new Error(
+                      `Fee currency address ${feeCurrencyAddress} not recognized.`
+                  )
+          }
+
+      default:
+          throw new Error(
+              `Network ${network} not recognized.`
+          )
   }
 }
 
-function getFeeCurrencyAddressFromName(feeCurrencyName: string): string | undefined {
-  switch (feeCurrencyName) {
-    case 'celo':
-      return undefined
-    case 'cusd':
-      return '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1' // TODO make this dynamic by network, currently just for alfajores
-    case 'ceur':
-      return '0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F'
-    case 'creal':
-      return '0xE4D517785D091D3c54818832dB6094bcc2744545'
-    default:
-      throw new Error(
-        `Fee currency string ${feeCurrencyName} not recognized. Must be either 'celo', 'cusd', 'ceur' or 'creal'.`
-      )
+function getFeeCurrencyAddressFromName(feeCurrencyName: string, network: string): string | undefined {
+  switch (network) {
+    case CELO_ALFAJORES:
+      switch (feeCurrencyName) {
+        case 'celo':
+          return undefined
+        case 'cusd':
+          return '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1' // TODO make this dynamic by network, currently just for alfajores
+        case 'ceur':
+          return '0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F'
+        case 'creal':
+          return '0xE4D517785D091D3c54818832dB6094bcc2744545'
+        default:
+          throw new Error(
+            `Fee currency string ${feeCurrencyName} not recognized. Must be either 'celo', 'cusd', 'ceur' or 'creal'.`
+          )
+      }
+    case CELO_MAINNET:
+      switch (feeCurrencyName) {
+        case 'celo':
+          return undefined
+        case 'cusd':
+          return '0x765DE816845861e75A25fCA122bb6898B8B1282a' // TODO make this dynamic by network, currently just for alfajores
+        case 'ceur':
+          return '0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73'
+        case 'creal':
+          return '0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787'
+        default:
+          throw new Error(
+            `Fee currency string ${feeCurrencyName} not recognized. Must be either 'celo', 'cusd', 'ceur' or 'creal'.`
+          )
+      }
   }
 }
