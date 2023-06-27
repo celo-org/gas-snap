@@ -38,6 +38,13 @@ async function connect() {
 Once connected, you can call the RPC method exposed in this snap as follows:
 
 ```javascript
+
+ import { CeloTransactionRequest } from '@celo-tools/celo-ethers-wrapper';
+
+ const tx: CeloTransactionRequest = {
+        to: <address>,
+        value: Number(ethers.utils.parseUnits("1", "wei"))
+    }
  const result = await ethereum.request({
   method: 'wallet_invokeSnap',
   params: {
@@ -45,7 +52,7 @@ Once connected, you can call the RPC method exposed in this snap as follows:
     request: {
       method: 'celo_sendTransaction',
       params: {
-          tx: { to, value }
+          tx
       }
     },
   },
