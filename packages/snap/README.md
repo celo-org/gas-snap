@@ -4,12 +4,6 @@ A MetaMask snap for sending Celo transactions with alternate gas currencies
 
 [![Open Source Love svg1](https://badges.frapsoft.com/os/v1/open-source.svg?v=103)](https://github.com/ellerbrock/open-source-badges/)
 
-## Install
-
-```
-yarn add @celo/gas-snap
-```
-
 ## Usage
 
 To interact with this Snap, you will need to install [MetaMask Flask](https://metamask.io/flask/), a canary distribution for developers that provides access to upcoming features.
