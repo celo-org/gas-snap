@@ -37,7 +37,7 @@ Once connected, you can call the RPC method exposed in this snap as follows:
 
  const tx: CeloTransactionRequest = {
         to: <address>,
-        value: Number(ethers.utils.parseUnits("1", "wei"))
+        value: ethers.utils.parseUnits("1", "wei")
     }
  const result = await ethereum.request({
   method: 'wallet_invokeSnap',
