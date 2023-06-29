@@ -1,13 +1,14 @@
+import { CELO_ALFAJORES, CELO_MAINNET } from "../constants";
 
 
 const networks = [{
-    "name": "Celo Alfajores",
+    "name": CELO_ALFAJORES,
     "chainIdHex": "0xaef3",
     "chainIdDecimal": 44787,
     "url": "https://alfajores-forno.celo-testnet.org",
     "explorer": "https://explorer.celo.org/alfajores"
 }, {
-    "name": "Celo Mainnet",
+    "name": CELO_MAINNET,
     "chainIdHex": "0xa4ec",
     "chainIdDecimal": 42220,
     "url": "https://forno.celo.org",
