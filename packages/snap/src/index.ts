@@ -263,7 +263,7 @@ function getFeeCurrencyAddressFromName(feeCurrencyName: string, network: string)
         case 'celo':
           return undefined
         case 'cusd':
-          return '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1' // TODO make this dynamic by network, currently just for alfajores
+          return '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1'
         case 'ceur':
           return '0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F'
         case 'creal':
@@ -278,7 +278,7 @@ function getFeeCurrencyAddressFromName(feeCurrencyName: string, network: string)
         case 'celo':
           return undefined
         case 'cusd':
-          return '0x765DE816845861e75A25fCA122bb6898B8B1282a' // TODO make this dynamic by network, currently just for alfajores
+          return '0x765DE816845861e75A25fCA122bb6898B8B1282a'
         case 'ceur':
           return '0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73'
         case 'creal':
