@@ -103,3 +103,15 @@ This example shows how one can use the snap to send a more generic transaction.
   });
   
 ```
+
+## Publishing a new version of the Snap.
+
+In other to update the snap to publish a new change, Update the `version` tag in both `packages/snap/snap.config.js` and `packages/snap/pakcage.json` to the same. Then from you console run the following commands. 
+
+Note: You must be logged into NPM on your terminal as well as added to the celo organization on npm.
+
+```
+cd packages/snap
+
+npm publish --access public
+```
