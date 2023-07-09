@@ -1,12 +1,16 @@
 import { OnRpcRequestHandler } from '@metamask/snaps-types'
 import { panel, text, copyable } from '@metamask/snaps-ui'
 import { CeloProvider, CeloTransactionRequest, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
-import { Contract } from 'ethers'
+import { Contract, BigNumber, ethers } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
+import { RequestParamsSchema, SortedOraclesRates, TokenInfo, InsufficientFundsError } from './utils/types'
 // import { STABLE_TOKEN_CONTRACT } from './constants'
 import { STABLE_TOKEN_ABI } from './abis/stableToken'
-import { InsufficientFundsError, RequestParamsSchema, StableTokenBalance } from './utils/types'
+import { REGISTRY_ABI } from './abis/Registry'
+import { SORTED_ORACLES_ABI } from './abis/SortedOracles'
+import { FEE_CURRENCY_WHITELIST_ABI } from './abis/FeeCurrencyWhitelist'
+import { CELO_ALFAJORES, CELO_MAINNET, REGISTRY_ADDRESS } from './constants'
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -24,7 +28,6 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
   const bip44Node = await getBIP44Node()
   const privateKey = await getPrivateKey(bip44Node)
   const wallet = new CeloWallet(privateKey).connect(provider)
-
   if (!RequestParamsSchema.is(request.params)) {
     await snap.request({
       method: 'snap_dialog',
@@ -59,7 +62,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
 
       if (result === true) {
         tx.feeCurrency ??= await getOptimalFeeCurrency(tx, wallet)
-        const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(tx.feeCurrency)
+        const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(tx.feeCurrency, network.name)
 
         const overrideFeeCurrency = await snap.request({
           method: 'snap_dialog',
@@ -80,7 +83,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           overrideFeeCurrency === 'creal' ||
           overrideFeeCurrency === 'celo'  
         ) {
-          tx.feeCurrency = getFeeCurrencyAddressFromName(overrideFeeCurrency)
+          tx.feeCurrency = getFeeCurrencyAddressFromName(overrideFeeCurrency, network.name)
         }
 
         try {
@@ -177,92 +180,123 @@ async function getPrivateKey(bip44Node?: BIP44Node, index: number = 0): Promise<
  * feeCurrency is Celo. 
  */
 async function getOptimalFeeCurrency(tx: CeloTransactionRequest, wallet: CeloWallet): Promise<string | undefined> {
+  const registry = new Contract(REGISTRY_ADDRESS, REGISTRY_ABI, wallet); 
+  const sortedOraclesAddress = await registry.getAddressForString("SortedOracles");
+  const feeCurrencyWhitelistAddress = await registry.getAddressForString("FeeCurrencyWhitelist");
+  const sortedOraclesContract = new Contract(sortedOraclesAddress, SORTED_ORACLES_ABI, wallet); 
+  const feeCurrencyWhitelistContract = new Contract(feeCurrencyWhitelistAddress, FEE_CURRENCY_WHITELIST_ABI, wallet); 
   const gasLimit = (await wallet.estimateGas(tx)).mul(5)
   const celoBalance = await wallet.getBalance();
-  const addresses = [ //get this dynamically based on network.
-    "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1",
-    "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F",
-    "0xE4D517785D091D3c54818832dB6094bcc2744545"
-  ]; 
+  const tokenAddresses = await feeCurrencyWhitelistContract.getWhitelist();
+
   if (gasLimit.add(tx.value ?? 0) >= celoBalance) {
-    const promises: Promise<unknown>[] = [];
-    addresses.forEach((address) => {
-      
-      // const token = new Contract(address, STABLE_TOKEN_CONTRACT.abi, wallet);
-      const token = new Contract(address, STABLE_TOKEN_ABI, wallet);
+    console.log("using stable token for gas")
+    const tokens: Contract[] = tokenAddresses.map((tokenAddress: string) => new Contract(tokenAddress, STABLE_TOKEN_ABI, wallet))
 
-      promises.push(token.balanceOf(wallet.address))
-    })
+    const [
+      ratesResults,
+      balanceResults
+    ] = await Promise.all([
+      Promise.allSettled(tokens.map((t) => sortedOraclesContract.medianRate(t.address) as BigNumber[])),
+      Promise.allSettled(tokens.map((t) => t.balanceOf(wallet.address) as BigNumber))
+    ])
 
-    const results = await Promise.allSettled(promises);
-    const balances: StableTokenBalance[] = [];
+    const tokenInfos: TokenInfo[] = []
 
-    for (let i = 0; i < results.length; i++) {
-      switch (results[i].status) {
-        case "fulfilled":
-          console.info(
-            tx,
-            `Successfully retrieved stable token balance - address : ${addresses[i]}`
-          );
-          
-          balances.push({
-            // @ts-ignore: Property 'value' does not exist on type 'PromiseSettledResult<T>
-             value: results[i].value,
-             token: addresses[i]
-            })
-          break;
-
-        case "rejected":
-          console.error(
-            tx,
-            `Unable to retrieve balance for stable token balance - address : ${addresses[i]}`
-          );
-          break;
-
-        default:
-          throw new Error("Unexpected result status.");
-      }
+    for (let i = 0; i < tokens.length; i++) {
+      const [address, ratesRes, balanceRes] = [tokens[i].address, ratesResults[i], balanceResults[i]]
+      const rates = ratesRes.status === "fulfilled" ? {
+        numerator: ratesRes.value[0],
+        denominator: ratesRes.value[1]
+      } as SortedOraclesRates : undefined
+      const balance = balanceRes.status === "fulfilled" ? balanceRes.value : undefined
+      const value = (rates && balance) ? balance.mul(rates.numerator.div(rates.denominator)) : ethers.constants.Zero
+      tokenInfos.push({ address, value, rates, balance })
     }
 
-    const values = balances.map((balance: StableTokenBalance) => Number(balance.value));
-    const index = values.indexOf(Math.max(...values));
+    // TODO: consider edge case where the transaction itself sends a stable token 
+    // sort in descending order
+    const sortedTokenInfos = tokenInfos.sort((a, b) => b.value.sub(a.value).toNumber())
 
-    return addresses[index];
+    return sortedTokenInfos[0].address;
   } 
   return undefined;
 }
 
-// TODO find a better way to do this
-function getFeeCurrencyNameFromAddress(feeCurrencyAddress: string | undefined): string {
-  switch (feeCurrencyAddress) {
-    case undefined:
-      return 'celo'
-    case '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1':
-      return 'cusd'
-    case '0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F':
-      return 'ceur'
-    case '0xE4D517785D091D3c54818832dB6094bcc2744545':
-      return 'creal'
-    default:
-      throw new Error(
-        `Fee currency address ${feeCurrencyAddress} not recognized.`
-      )
+// TODO Retrieve this onchain, this would need Update to the FeeCurrencyWhitelist.sol
+// contract to also store currency name.
+function getFeeCurrencyNameFromAddress(feeCurrencyAddress: string | undefined, network: string): string {
+  switch (network) {
+      case CELO_ALFAJORES:
+          switch (feeCurrencyAddress) {
+              case undefined:
+                  return 'celo'
+              case '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1':
+                  return 'cusd'
+              case '0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F':
+                  return 'ceur'
+              case '0xE4D517785D091D3c54818832dB6094bcc2744545':
+                  return 'creal'
+              default:
+                  throw new Error(
+                      `Fee currency address ${feeCurrencyAddress} not recognized.`
+                  )
+          }             
+
+      case CELO_MAINNET:
+          switch (feeCurrencyAddress) {
+              case undefined:
+                  return 'celo'
+              case '0x765DE816845861e75A25fCA122bb6898B8B1282a':
+                  return 'cusd'
+              case '0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73':
+                  return 'ceur'
+              case '0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787':
+                  return 'creal'
+              default:
+                  throw new Error(
+                      `Fee currency address ${feeCurrencyAddress} not recognized.`
+                  )
+          }
+
+      default:
+          throw new Error(
+              `Network ${network} not recognized.`
+          )
   }
 }
 
-function getFeeCurrencyAddressFromName(feeCurrencyName: string): string | undefined {
-  switch (feeCurrencyName) {
-    case 'celo':
-      return undefined
-    case 'cusd':
-      return '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1' // TODO make this dynamic by network, currently just for alfajores
-    case 'ceur':
-      return '0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F'
-    case 'creal':
-      return '0xE4D517785D091D3c54818832dB6094bcc2744545'
-    default:
-      throw new Error(
-        `Fee currency string ${feeCurrencyName} not recognized. Must be either 'celo', 'cusd', 'ceur' or 'creal'.`
-      )
+function getFeeCurrencyAddressFromName(feeCurrencyName: string, network: string): string | undefined {
+  switch (network) {
+    case CELO_ALFAJORES:
+      switch (feeCurrencyName) {
+        case 'celo':
+          return undefined
+        case 'cusd':
+          return '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1'
+        case 'ceur':
+          return '0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F'
+        case 'creal':
+          return '0xE4D517785D091D3c54818832dB6094bcc2744545'
+        default:
+          throw new Error(
+            `Fee currency string ${feeCurrencyName} not recognized. Must be either 'celo', 'cusd', 'ceur' or 'creal'.`
+          )
+      }
+    case CELO_MAINNET:
+      switch (feeCurrencyName) {
+        case 'celo':
+          return undefined
+        case 'cusd':
+          return '0x765DE816845861e75A25fCA122bb6898B8B1282a'
+        case 'ceur':
+          return '0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73'
+        case 'creal':
+          return '0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787'
+        default:
+          throw new Error(
+            `Fee currency string ${feeCurrencyName} not recognized. Must be either 'celo', 'cusd', 'ceur' or 'creal'.`
+          )
+      }
   }
 }

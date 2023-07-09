@@ -53,10 +53,17 @@ export const RequestParamsSchema: t.Type<RequestParams> = t.type({
     tx:  CeloTransactionRequestSchema
 })
 
-export type StableTokenBalance = {
-    value: string
-    token: string
-  }
+export type SortedOraclesRates = {
+    numerator: BigNumber
+    denominator: BigNumber
+}
+
+export type TokenInfo = {
+    address: string
+    value: BigNumber
+    balance?: BigNumber
+    rates?: SortedOraclesRates
+}
 
 export type InsufficientFundsError = {
     code: string;
