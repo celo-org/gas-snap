@@ -1,5 +1,6 @@
 import { defaultSnapOrigin } from '../config';
 import { GetSnapsResponse, Snap } from '../types';
+import { CeloTransactionRequest } from '@celo-tools/celo-ethers-wrapper';
 
 /**
  * Get the installed snaps in MetaMask.
@@ -50,7 +51,7 @@ export const getSnap = async (version?: string): Promise<Snap | undefined> => {
   }
 };
 
-export const sendTransaction = async (to: string, value: number) => {
+export const sendTransaction = async (tx: CeloTransactionRequest) => {
   await window.ethereum.request({
     method: 'wallet_invokeSnap',
     params: { 
@@ -58,7 +59,7 @@ export const sendTransaction = async (to: string, value: number) => {
       request: { 
         method: 'celo_sendTransaction',
         params: {
-          tx: { to, value }
+          tx
         }
       } 
     },

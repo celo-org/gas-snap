@@ -4,7 +4,7 @@ import { CeloProvider, CeloTransactionRequest, CeloWallet } from '@celo-tools/ce
 import { Contract, BigNumber, ethers } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
-import { RequestParamsSchema, SortedOraclesRates, TokenInfo } from './utils/types'
+import { RequestParamsSchema, SortedOraclesRates, TokenInfo, InsufficientFundsError } from './utils/types'
 // import { STABLE_TOKEN_CONTRACT } from './constants'
 import { STABLE_TOKEN_ABI } from './abis/stableToken'
 import { REGISTRY_ABI } from './abis/Registry'
@@ -99,13 +99,23 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
             }
           })
         } catch (error) {
+
+          function isInsufficientFundsError ( error : any ): error is InsufficientFundsError {
+            return typeof error.code === 'string';
+          }
+
+          let message = JSON.stringify(error);
+
+          if (isInsufficientFundsError(error) && error.code === 'INSUFFICIENT_FUNDS') {
+            message = "Oops! Looks like the chosen gas currency is not sufficient to complete the operation. Please try again using another currency."
+          }
           await snap.request({
             method: 'snap_dialog',
             params: {
               type: 'alert',
               content: panel([
                 text(`Your transaction failed!`),
-                text(`error: ${JSON.stringify(error)}`)
+                text(`error: ${message}`)
               ])
             }
           })

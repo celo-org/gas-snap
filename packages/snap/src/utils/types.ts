@@ -64,3 +64,7 @@ export type TokenInfo = {
     balance?: BigNumber
     rates?: SortedOraclesRates
 }
+
+export type InsufficientFundsError = {
+    code: string;
+};
