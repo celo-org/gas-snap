@@ -57,3 +57,7 @@ export type StableTokenBalance = {
     value: string
     token: string
   }
+
+export type InsufficientFundsError = {
+    code: string;
+};

@@ -129,7 +129,7 @@ const Index = () => {
       // TODO address the fact that this "se
       const tx: CeloTransactionRequest = {
         to: '0x3a404155a41cd28578041d041e7de86941ceaab7',
-        value: Number(ethers.utils.parseUnits("1", "wei"))
+        value: ethers.utils.parseUnits("1", "wei")
       }
       await sendTransaction(tx);
     } catch (e) {

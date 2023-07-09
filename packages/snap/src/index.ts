@@ -6,7 +6,7 @@ import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
 // import { STABLE_TOKEN_CONTRACT } from './constants'
 import { STABLE_TOKEN_ABI } from './abis/stableToken'
-import { RequestParams, RequestParamsSchema, StableTokenBalance } from './utils/types'
+import { InsufficientFundsError, RequestParamsSchema, StableTokenBalance } from './utils/types'
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -97,18 +97,22 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           })
         } catch (error) {
 
-          let message = error;
-          if (error.code === 'INSUFFICIENT_FUNDS') {
-            message = "Oops! Looks like the chosen gas currency is not sufficient to complete the operation. Please try again using another currency."
+          function isInsufficientFundsError ( error : any ): error is InsufficientFundsError {
+            return typeof error.code === 'string';
           }
 
+          let message = JSON.stringify(error);
+
+          if (isInsufficientFundsError(error) && error.code === 'INSUFFICIENT_FUNDS') {
+            message = "Oops! Looks like the chosen gas currency is not sufficient to complete the operation. Please try again using another currency."
+          }
           await snap.request({
             method: 'snap_dialog',
             params: {
               type: 'alert',
               content: panel([
                 text(`Your transaction failed!`),
-                text(`error: ${JSON.stringify(message)}`)
+                text(`error: ${message}`)
               ])
             }
           })
