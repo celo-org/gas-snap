@@ -25,7 +25,7 @@ import { CELO_ALFAJORES, CELO_MAINNET, REGISTRY_ADDRESS } from './constants'
 export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {   
   const network = await getNetworkConfig()
   const provider = new CeloProvider(network.url)
-  const keyPair = await getKeyPair(snap)
+  const keyPair = await getKeyPair(snap) // todo accept address from request
   const wallet = new CeloWallet(keyPair.privateKey).connect(provider)
   if (!RequestParamsSchema.is(request.params)) {
     await snap.request({
@@ -43,7 +43,6 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
   }
 
   const tx: CeloTransactionRequest = request.params.tx
-  
   switch (request.method) {
 
     case 'celo_sendTransaction':
@@ -54,7 +53,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           content: panel([
             text('Please approve the following transaction'),
             text(`to: ${tx.to}`),
-            text(`value: ${tx.value} wei`)
+            text(`value: ${BigInt(tx.value?._hex)} wei`)
           ])
         }
       })
@@ -128,11 +127,11 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
 
 async function getNetworkConfig(): Promise<Network> {
   const chainId = await ethereum.request({ method: 'eth_chainId' }) as string
-  return getNetwork(chainId) // TODO
+  return getNetwork(chainId)
 }
 
 async function sendTransaction(tx: CeloTransactionRequest, wallet: CeloWallet) {
-  
+  tx.value = BigNumber.from(tx.value) // todo investigate why we get a hex error w/o this.
   const txResponse = await wallet.sendTransaction({
     ...tx,
     gasLimit: (await wallet.estimateGas(tx)).mul(5),
