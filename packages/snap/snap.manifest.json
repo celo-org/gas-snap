@@ -1,5 +1,5 @@
 {
-  "version": "0.5.1",
+  "version": "0.5.3-alpha.1",
   "description": "An example Snap written in TypeScript.",
   "proposedName": "Celo Gas Snap",
   "repository": {
@@ -7,7 +7,7 @@
     "url": "https://github.com/celo-org/gas-snap.git"
   },
   "source": {
-    "shasum": "TqD6RLR2YehjE015MDOy2uveW6tPRyX8/ytBLauCvZc=",
+    "shasum": "WIQyaXyyAZxLCKV6qS34dHB74ZTwpHB15irXwBoeFtU=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",
@@ -22,6 +22,9 @@
     "snap_getBip44Entropy": [
       {
         "coinType": 52752
+      },
+      {
+        "coinType": 60
       }
     ],
     "snap_manageState": {},

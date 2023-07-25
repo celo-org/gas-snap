@@ -68,3 +68,9 @@ export type TokenInfo = {
 export type InsufficientFundsError = {
     code: string;
 };
+
+export interface KeyPair {
+    address: string;
+    privateKey: string;
+    publicKey: string;
+  }
