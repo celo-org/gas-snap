@@ -115,3 +115,8 @@ cd packages/snap
 
 npm publish --access public
 ```
+
+## Register a new coin type.
+To Register a new coin type, add a new entry `snap_getBip44Entropy` with the desired coin type.
+See list for reference.
+https://github.com/satoshilabs/slips/blob/master/slip-0044.md
