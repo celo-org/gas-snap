@@ -143,7 +143,7 @@ async function sendTransaction(tx: CeloTransactionRequest, wallet: CeloWallet) {
 
 async function getKeyPair(snap: SnapsGlobalObject, address?: string, addressIndex: number = 0): Promise<KeyPair> {
   const derivationPath = "m/44'/60'/0'/0"; //Todo - read from state config
-  let extendedPrivateKey;
+  let derivedKey;
   let _addressIndex = 0;
   const MAX_SEARCH_DEPTH = 50;
 
@@ -167,7 +167,7 @@ async function getKeyPair(snap: SnapsGlobalObject, address?: string, addressInde
     do {
       search = await addressKeyDeriver(Number(_addressIndex));
       if (search.address.toLowerCase() == address.toLowerCase()) {
-        extendedPrivateKey = search
+        derivedKey = search
       }
       _addressIndex = _addressIndex + 1;
     } while (
@@ -175,10 +175,10 @@ async function getKeyPair(snap: SnapsGlobalObject, address?: string, addressInde
       _addressIndex <= MAX_SEARCH_DEPTH
     );
   } else {
-    extendedPrivateKey = await addressKeyDeriver(Number(addressIndex));
+    derivedKey = await addressKeyDeriver(Number(addressIndex));
   } 
 
-  if (!extendedPrivateKey) {
+  if (!derivedKey) {
     await snap.request({
       method: 'snap_dialog',
       params: {
@@ -192,9 +192,9 @@ async function getKeyPair(snap: SnapsGlobalObject, address?: string, addressInde
   }
 
   return {
-    address: extendedPrivateKey.address,
-    privateKey: extendedPrivateKey.privateKey,
-    publicKey: extendedPrivateKey.publicKey,
+    address: derivedKey.address,
+    privateKey: derivedKey.privateKey,
+    publicKey: derivedKey.publicKey,
   };
 }
 /**
