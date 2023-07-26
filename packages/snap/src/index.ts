@@ -184,7 +184,7 @@ async function getKeyPair(snap: SnapsGlobalObject, address?: string, addressInde
       params: {
         type: 'alert',
         content: panel([
-          text(`Oops we could not locate the private key to complete the transaction!`),
+          text(`The Transaction specifies from ${address} however that address could not be signed by the private key derived from the MetaMask Mnemonic.`),
         ])
       }
     })
