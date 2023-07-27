@@ -80,15 +80,6 @@ This example shows how one can use the snap to send a more generic transaction.
       value: ethers.utils.parseUnits("1", "wei")
   }
 
-  const gasLimit = (await wallet.estimateGas(tx)).mul(10)
-
-  tx = {
-      ...tx,
-      feeCurrency,
-      gasPrice,
-      gasLimit,
-  }
-
   const result = await ethereum.request({
     method: 'wallet_invokeSnap',
     params: {

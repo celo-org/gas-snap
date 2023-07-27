@@ -126,7 +126,6 @@ const Index = () => {
       // The array may contain more than one account in the future. 
       // The first account in the array will always be considered the user's "selected" account.
       // https://docs.metamask.io/wallet/get-started/access-accounts
-      // TODO address the fact that this "se
       const tx: CeloTransactionRequest = {
         to: '0x3a404155a41cd28578041d041e7de86941ceaab7',
         value: ethers.utils.parseUnits("1", "wei")
