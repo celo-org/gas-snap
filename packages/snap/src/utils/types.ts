@@ -65,10 +65,6 @@ export type TokenInfo = {
     rates?: SortedOraclesRates
 }
 
-export type InsufficientFundsError = {
-    code: string;
-};
-
 export interface KeyPair {
     address: string;
     privateKey: string;

@@ -11,6 +11,7 @@ import { REGISTRY_ABI } from './abis/Registry'
 import { SORTED_ORACLES_ABI } from './abis/SortedOracles'
 import { FEE_CURRENCY_WHITELIST_ABI } from './abis/FeeCurrencyWhitelist'
 import { CELO_ALFAJORES, CELO_MAINNET, REGISTRY_ADDRESS } from './constants'
+import { isInsufficientFundsError } from './utils/utils'
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -22,11 +23,11 @@ import { CELO_ALFAJORES, CELO_MAINNET, REGISTRY_ADDRESS } from './constants'
  * @returns The result of `snap_dialog`.
  * @throws If the request method is not valid for this snap, or if the request params are invalid. 
  */
-export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {   
-  const network = await getNetworkConfig()
-  const provider = new CeloProvider(network.url)
-  const keyPair = await getKeyPair(snap) // todo accept address from request
-  const wallet = new CeloWallet(keyPair.privateKey).connect(provider)
+export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
+  const network = await getNetworkConfig();
+  const provider = new CeloProvider(network.url);
+  const keyPair = await getKeyPair(snap); // todo accept address from request
+  const wallet = new CeloWallet(keyPair.privateKey).connect(provider);
   if (!RequestParamsSchema.is(request.params)) {
     await snap.request({
       method: 'snap_dialog',
@@ -34,17 +35,16 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
         type: 'alert',
         content: panel([
           text(`Invalid Request!`),
-          text(`${JSON.stringify(request.params)}`)
-        ])
-      }
-    })
+          text(`${JSON.stringify(request.params)}`),
+        ]),
+      },
+    });
 
-    return
+    return;
   }
 
-  const tx: CeloTransactionRequest = request.params.tx
+  const tx: CeloTransactionRequest = request.params.tx;
   switch (request.method) {
-
     case 'celo_sendTransaction':
       const result = await snap.request({
         method: 'snap_dialog',
@@ -53,75 +53,83 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           content: panel([
             text('Please approve the following transaction'),
             text(`to: ${tx.to}`),
-            text(`value: ${BigInt(tx.value?._hex)} wei`)
-          ])
-        }
-      })
+            text(`value: ${BigInt(tx.value?._hex)} wei`),
+          ]),
+        },
+      });
 
       if (result === true) {
-        tx.feeCurrency ??= await getOptimalFeeCurrency(tx, wallet)
-        const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(tx.feeCurrency, network.name)
+        tx.feeCurrency ??= await getOptimalFeeCurrency(tx, wallet);
+        const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(
+          tx.feeCurrency,
+          network.name,
+        );
 
         const overrideFeeCurrency = await snap.request({
           method: 'snap_dialog',
           params: {
             type: 'prompt',
             content: panel([
-              text(`The suggested gas currency for your tx is ${suggestedFeeCurrency}`),
-              text(`If you would like to use a different gas currency, please enter it below`),
-              text(`Otherwise, press submit`)
+              text(
+                `The suggested gas currency for your tx is ${suggestedFeeCurrency}`,
+              ),
+              text(
+                `If you would like to use a different gas currency, please enter it below`,
+              ),
+              text(`Otherwise, press submit`),
             ]),
-            placeholder: `'cusd', 'ceur', 'creal', 'celo'`
-          }
-        })
+            placeholder: `'cusd', 'ceur', 'creal', 'celo'`,
+          },
+        });
 
-        if ( // TODO find a cleaner way to do this, probably use an enum 
+        if (
+          // TODO find a cleaner way to do this, probably use an enum
           overrideFeeCurrency === 'cusd' ||
           overrideFeeCurrency === 'ceur' ||
           overrideFeeCurrency === 'creal' ||
-          overrideFeeCurrency === 'celo'  
+          overrideFeeCurrency === 'celo'
         ) {
-          tx.feeCurrency = getFeeCurrencyAddressFromName(overrideFeeCurrency, network.name)
+          tx.feeCurrency = getFeeCurrencyAddressFromName(
+            overrideFeeCurrency,
+            network.name,
+          );
         }
 
         try {
-          const txReceipt = await sendTransaction(tx, wallet)
+          const txReceipt = await sendTransaction(tx, wallet);
           await snap.request({
             method: 'snap_dialog',
             params: {
               type: 'alert',
               content: panel([
                 text(`Your transaction succeeded!`),
-                copyable(`${network.explorer}/tx/${txReceipt.transactionHash}`)
-              ])
-            }
-          })
+                copyable(`${network.explorer}/tx/${txReceipt.transactionHash}`),
+              ]),
+            },
+          });
         } catch (error) {
-
-          function isInsufficientFundsError ( error : any ): error is InsufficientFundsError {
-            return typeof error.code === 'string';
-          }
-
           let message = JSON.stringify(error);
 
-          if (isInsufficientFundsError(error) && error.code === 'INSUFFICIENT_FUNDS') {
-            message = "Oops! Looks like the chosen gas currency is not sufficient to complete the operation. Please try again using another currency."
+          if (isInsufficientFundsError(error)) {
+            message =
+              'Oops! Looks like the chosen gas currency is not sufficient to complete the operation. Please try again using another currency.';
           }
+
           await snap.request({
             method: 'snap_dialog',
             params: {
               type: 'alert',
               content: panel([
                 text(`Your transaction failed!`),
-                text(`error: ${message}`)
-              ])
-            }
-          })
+                text(`error: ${message}`),
+              ]),
+            },
+          });
         }
       }
 
     default:
-      throw new Error('Method not found.')
+      throw new Error('Method not found.');
   }
 }
 
