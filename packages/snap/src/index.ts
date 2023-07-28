@@ -11,7 +11,7 @@ import { REGISTRY_ABI } from './abis/Registry'
 import { SORTED_ORACLES_ABI } from './abis/SortedOracles'
 import { FEE_CURRENCY_WHITELIST_ABI } from './abis/FeeCurrencyWhitelist'
 import { CELO_ALFAJORES, CELO_MAINNET, REGISTRY_ADDRESS } from './constants'
-import { isInsufficientFundsError } from './utils/utils'
+import { handleNumber, isInsufficientFundsError } from './utils/utils'
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -44,6 +44,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
   }
 
   const tx: CeloTransactionRequest = request.params.tx;
+  tx.value = handleNumber(tx.value) // todo find way to do this within io-ts transformation
   switch (request.method) {
     case 'celo_sendTransaction':
       const result = await snap.request({
@@ -112,7 +113,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
 
           if (isInsufficientFundsError(error)) {
             message =
-              'Oops! Looks like you don't have sufficient funds in the chosen gas currency to complete the operation. Please try again using another currency.';
+              `Oops! Looks like you don't have sufficient funds in the chosen gas currency to complete the operation. Please try again using another currency.`;
           }
 
           await snap.request({
