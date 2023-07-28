@@ -1,16 +1,17 @@
-import { OnRpcRequestHandler } from '@metamask/snaps-types'
+import { OnRpcRequestHandler, SnapsGlobalObject } from '@metamask/snaps-types'
 import { panel, text, copyable } from '@metamask/snaps-ui'
 import { CeloProvider, CeloTransactionRequest, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
 import { Contract, BigNumber, ethers } from 'ethers'
-import { getBIP44AddressKeyDeriver, BIP44Node } from '@metamask/key-tree'
+import { getBIP44AddressKeyDeriver, BIP44Node , JsonBIP44CoinTypeNode} from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
-import { RequestParamsSchema, SortedOraclesRates, TokenInfo } from './utils/types'
+import { RequestParamsSchema, SortedOraclesRates, TokenInfo, InsufficientFundsError, KeyPair } from './utils/types'
 // import { STABLE_TOKEN_CONTRACT } from './constants'
 import { STABLE_TOKEN_ABI } from './abis/stableToken'
 import { REGISTRY_ABI } from './abis/Registry'
 import { SORTED_ORACLES_ABI } from './abis/SortedOracles'
 import { FEE_CURRENCY_WHITELIST_ABI } from './abis/FeeCurrencyWhitelist'
 import { CELO_ALFAJORES, CELO_MAINNET, REGISTRY_ADDRESS } from './constants'
+import { handleNumber, isInsufficientFundsError } from './utils/utils'
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -22,12 +23,11 @@ import { CELO_ALFAJORES, CELO_MAINNET, REGISTRY_ADDRESS } from './constants'
  * @returns The result of `snap_dialog`.
  * @throws If the request method is not valid for this snap, or if the request params are invalid. 
  */
-export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {   
-  const network = await getNetworkConfig()
-  const provider = new CeloProvider(network.url)
-  const bip44Node = await getBIP44Node()
-  const privateKey = await getPrivateKey(bip44Node)
-  const wallet = new CeloWallet(privateKey).connect(provider)
+export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
+  const network = await getNetworkConfig();
+  const provider = new CeloProvider(network.url);
+  const keyPair = await getKeyPair(snap); // todo accept address from request
+  const wallet = new CeloWallet(keyPair.privateKey).connect(provider);
   if (!RequestParamsSchema.is(request.params)) {
     await snap.request({
       method: 'snap_dialog',
@@ -35,18 +35,17 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
         type: 'alert',
         content: panel([
           text(`Invalid Request!`),
-          text(`${JSON.stringify(request.params)}`)
-        ])
-      }
-    })
+          text(`${JSON.stringify(request.params)}`),
+        ]),
+      },
+    });
 
-    return
+    return;
   }
 
-  const tx: CeloTransactionRequest = request.params.tx
-  
+  const tx: CeloTransactionRequest = request.params.tx;
+  tx.value = handleNumber(tx.value) // todo find way to do this within io-ts transformation
   switch (request.method) {
-
     case 'celo_sendTransaction':
       const result = await snap.request({
         method: 'snap_dialog',
@@ -55,75 +54,93 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           content: panel([
             text('Please approve the following transaction'),
             text(`to: ${tx.to}`),
-            text(`value: ${tx.value} wei`)
-          ])
-        }
-      })
+            text(`value: ${BigInt(tx.value?.toString())} wei`),
+          ]),
+        },
+      });
 
       if (result === true) {
-        tx.feeCurrency ??= await getOptimalFeeCurrency(tx, wallet)
-        const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(tx.feeCurrency, network.name)
+        tx.feeCurrency ??= await getOptimalFeeCurrency(tx, wallet);
+        const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(
+          tx.feeCurrency,
+          network.name,
+        );
 
         const overrideFeeCurrency = await snap.request({
           method: 'snap_dialog',
           params: {
             type: 'prompt',
             content: panel([
-              text(`The suggested gas currency for your tx is ${suggestedFeeCurrency}`),
-              text(`If you would like to use a different gas currency, please enter it below`),
-              text(`Otherwise, press submit`)
+              text(
+                `The suggested gas currency for your tx is ${suggestedFeeCurrency}`,
+              ),
+              text(
+                `If you would like to use a different gas currency, please enter it below`,
+              ),
+              text(`Otherwise, press submit`),
             ]),
-            placeholder: `'cusd', 'ceur', 'creal', 'celo'`
-          }
-        })
+            placeholder: `'cusd', 'ceur', 'creal', 'celo'`,
+          },
+        });
 
-        if ( // TODO find a cleaner way to do this, probably use an enum 
+        if (
+          // TODO find a cleaner way to do this, probably use an enum
           overrideFeeCurrency === 'cusd' ||
           overrideFeeCurrency === 'ceur' ||
           overrideFeeCurrency === 'creal' ||
-          overrideFeeCurrency === 'celo'  
+          overrideFeeCurrency === 'celo'
         ) {
-          tx.feeCurrency = getFeeCurrencyAddressFromName(overrideFeeCurrency, network.name)
+          tx.feeCurrency = getFeeCurrencyAddressFromName(
+            overrideFeeCurrency,
+            network.name,
+          );
         }
 
         try {
-          const txReceipt = await sendTransaction(tx, wallet)
+          const txReceipt = await sendTransaction(tx, wallet);
           await snap.request({
             method: 'snap_dialog',
             params: {
               type: 'alert',
               content: panel([
                 text(`Your transaction succeeded!`),
-                copyable(`${network.explorer}/tx/${txReceipt.transactionHash}`)
-              ])
-            }
-          })
+                copyable(`${network.explorer}/tx/${txReceipt.transactionHash}`),
+              ]),
+            },
+          });
         } catch (error) {
+          let message = JSON.stringify(error);
+
+          if (isInsufficientFundsError(error)) {
+            message =
+              `Oops! Looks like you don't have sufficient funds in the chosen gas currency to complete the operation. Please try again using another currency.`;
+          }
+
           await snap.request({
             method: 'snap_dialog',
             params: {
               type: 'alert',
               content: panel([
                 text(`Your transaction failed!`),
-                text(`error: ${JSON.stringify(error)}`)
-              ])
-            }
-          })
+                text(`error: ${message}`),
+              ]),
+            },
+          });
         }
       }
 
     default:
-      throw new Error('Method not found.')
+      throw new Error('Method not found.');
   }
 }
 
 async function getNetworkConfig(): Promise<Network> {
   const chainId = await ethereum.request({ method: 'eth_chainId' }) as string
-  return getNetwork(chainId) // TODO
+  return getNetwork(chainId)
 }
 
 async function sendTransaction(tx: CeloTransactionRequest, wallet: CeloWallet) {
-  
+  tx.value = BigNumber.from(tx.value) // todo investigate why we get a hex error w/o this.
   const txResponse = await wallet.sendTransaction({
     ...tx,
     gasLimit: (await wallet.estimateGas(tx)).mul(5),
@@ -133,29 +150,62 @@ async function sendTransaction(tx: CeloTransactionRequest, wallet: CeloWallet) {
   return txResponse.wait()
 }
 
-async function getBIP44Node(index: number = 0): Promise<BIP44Node> {
-  // Get the bip44 node corresponding to the path m/44'/52752'/0'/0
-  const bip44Node = await snap.request({
+async function getKeyPair(snap: SnapsGlobalObject, address?: string, addressIndex: number = 0): Promise<KeyPair> {
+  const derivationPath = "m/44'/60'/0'/0"; //Todo - read from state config
+  let derivedKey;
+  let _addressIndex = 0;
+  const MAX_SEARCH_DEPTH = 50;
+
+  const [, , coinType, account, change] = derivationPath.split('/');
+  const bip44Code = coinType.replace("'", '');
+
+  const bip44Node = (await snap.request({
     method: 'snap_getBip44Entropy',
     params: {
-      coinType: 52752, // https://github.com/satoshilabs/slips/blob/master/slip-0044.md
+      coinType: Number(bip44Code),
     },
-  })
-  const deriveAddress = await getBIP44AddressKeyDeriver(bip44Node)
-  // Derive account w index 
-  return deriveAddress(index)
-}
+  })) as JsonBIP44CoinTypeNode;
 
-async function getPrivateKey(bip44Node?: BIP44Node, index: number = 0): Promise<string> {
-  if (!bip44Node) {
-    bip44Node = await getBIP44Node(index)
-  }
-  if (!bip44Node.privateKey) {
-    throw new Error('Private key is undefined. BIP-44 node is public.')
-  }
-  return bip44Node.privateKey
-}
+  const addressKeyDeriver = await getBIP44AddressKeyDeriver(bip44Node, {
+    account: parseInt(account),
+    change: parseInt(change),
+  }); 
 
+  if (address) {
+    let search;
+    do {
+      search = await addressKeyDeriver(Number(_addressIndex));
+      if (search.address.toLowerCase() == address.toLowerCase()) {
+        derivedKey = search
+      }
+      _addressIndex = _addressIndex + 1;
+    } while (
+      address.toLowerCase() != search.address.toLowerCase() &&
+      _addressIndex <= MAX_SEARCH_DEPTH
+    );
+  } else {
+    derivedKey = await addressKeyDeriver(Number(addressIndex));
+  } 
+
+  if (!derivedKey) {
+    await snap.request({
+      method: 'snap_dialog',
+      params: {
+        type: 'alert',
+        content: panel([
+          text(`The Transaction specifies from ${address} however that address could not be signed by the private key derived from the MetaMask Mnemonic.`),
+        ])
+      }
+    })
+    throw new Error('Unable to locate private key for account')
+  }
+
+  return {
+    address: derivedKey.address,
+    privateKey: derivedKey.privateKey,
+    publicKey: derivedKey.publicKey,
+  };
+}
 /**
  * Finds the optimal gas currency to send a transaction with based on user balances. 
  * This may differ from the feeCurrency specified in the transaction body. 

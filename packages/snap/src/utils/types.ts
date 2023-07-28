@@ -64,3 +64,9 @@ export type TokenInfo = {
     balance?: BigNumber
     rates?: SortedOraclesRates
 }
+
+export interface KeyPair {
+    address: string;
+    privateKey: string;
+    publicKey: string;
+  }

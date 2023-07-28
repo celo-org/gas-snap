@@ -15,6 +15,7 @@ import {
   SendHelloButton,
   Card,
 } from '../components';
+import { CeloTransactionRequest } from '@celo-tools/celo-ethers-wrapper';
 
 const Container = styled.div`
   display: flex;
@@ -125,12 +126,11 @@ const Index = () => {
       // The array may contain more than one account in the future. 
       // The first account in the array will always be considered the user's "selected" account.
       // https://docs.metamask.io/wallet/get-started/access-accounts
-      // TODO address the fact that this "selected" account is different from the one the snap uses to send the tx
-      await sendTransaction(
-        // accounts[0],
-        '0x3a404155a41cd28578041d041e7de86941ceaab7',
-        Number(ethers.utils.parseUnits("1", "wei"))
-      );
+      const tx: CeloTransactionRequest = {
+        to: '0x3a404155a41cd28578041d041e7de86941ceaab7',
+        value: ethers.utils.parseUnits("1", "wei")
+      }
+      await sendTransaction(tx);
     } catch (e) {
       console.error(e);
       // dispatch({ type: MetamaskActions.SetError, payload: e }); // TODO wait for issue to be fixed https://github.com/MetaMask/template-snap-monorepo/issues/46
