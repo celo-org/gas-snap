@@ -54,7 +54,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           content: panel([
             text('Please approve the following transaction'),
             text(`to: ${tx.to}`),
-            text(`value: ${BigInt(tx.value?._hex)} wei`),
+            text(`value: ${BigInt(tx.value?.toString())} wei`),
           ]),
         },
       });
