@@ -112,7 +112,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
 
           if (isInsufficientFundsError(error)) {
             message =
-              'Oops! Looks like the chosen gas currency is not sufficient to complete the operation. Please try again using another currency.';
+              'Oops! Looks like you don't have sufficient funds in the chosen gas currency to complete the operation. Please try again using another currency.';
           }
 
           await snap.request({
