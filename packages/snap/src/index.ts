@@ -45,17 +45,29 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
 
   const tx: CeloTransactionRequest = request.params.tx;
   tx.value = handleNumber(tx.value) // todo find way to do this within io-ts transformation
+
+  let panelContent = [
+    text('Please approve the following transaction'),
+    tx.to && text(`to: ${tx.to}`),
+    tx.from && text(`from: ${tx.from}`),
+    tx.nonce && text(`nonce: ${tx.nonce}`),
+    tx.gasLimit && text(`gasLimit: ${tx.gasLimit}`),
+    tx.gasPrice && text(`gasPrice: ${tx.gasPrice}`),
+    tx.data && text(`data: ${tx.data}`),
+    tx.value && text(`value: ${BigInt(tx.value?.toString())} wei`),
+    tx.chainId && text(`chainId: ${tx.chainId}`),
+    tx.feeCurrency && text(`feeCurrency: ${tx.feeCurrency}`),
+    tx.gatewayFeeRecipient && text(`gatewayFeeRecipient: ${tx.gatewayFeeRecipient}`),
+    tx.gatewayFee && text(`gatewayFee: ${tx.gatewayFee}`),
+  ].filter(Boolean)
+
   switch (request.method) {
     case 'celo_sendTransaction':
       const result = await snap.request({
         method: 'snap_dialog',
         params: {
           type: 'confirmation',
-          content: panel([
-            text('Please approve the following transaction'),
-            text(`to: ${tx.to}`),
-            text(`value: ${BigInt(tx.value?.toString())} wei`),
-          ]),
+          content: panel(panelContent),
         },
       });
 
