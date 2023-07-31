@@ -24,10 +24,6 @@ import { handleNumber, isInsufficientFundsError } from './utils/utils'
  * @throws If the request method is not valid for this snap, or if the request params are invalid. 
  */
 export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
-  const network = await getNetworkConfig();
-  const provider = new CeloProvider(network.url);
-  const keyPair = await getKeyPair(snap); // todo accept address from request
-  const wallet = new CeloWallet(keyPair.privateKey).connect(provider);
   if (!RequestParamsSchema.is(request.params)) {
     await snap.request({
       method: 'snap_dialog',
@@ -45,6 +41,10 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
 
   const tx: CeloTransactionRequest = request.params.tx;
   tx.value = handleNumber(tx.value) // todo find way to do this within io-ts transformation
+  const network = await getNetworkConfig();
+  const provider = new CeloProvider(network.url);
+  const keyPair = await getKeyPair(snap, tx.from);
+  const wallet = new CeloWallet(keyPair.privateKey).connect(provider);
 
   let panelContent = [
     text('Please approve the following transaction'),
