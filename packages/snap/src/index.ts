@@ -45,7 +45,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
   const provider = new CeloProvider(network.url);
   const keyPair = await getKeyPair(snap, tx.from);
   const wallet = new CeloWallet(keyPair.privateKey).connect(provider);
-
+  tx.from = tx.from ? tx.from : wallet.address;
   let panelContent = [
     text('Please approve the following transaction'),
     tx.to && text(`to: ${tx.to}`),
@@ -140,7 +140,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           });
         }
       }
-
+      break;
     default:
       throw new Error('Method not found.');
   }
