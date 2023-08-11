@@ -5,7 +5,7 @@ export function isInsufficientFundsError(error: any): boolean {
 }
 
 export function handleNumber(value: any): BigNumber {
-    if (value === "0x") {
+    if (value === "0x" || !value) {
       return constants.Zero;
     }
     return BigNumber.from(value);
