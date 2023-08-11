@@ -7,7 +7,7 @@
     "url": "https://github.com/celo-org/gas-snap.git"
   },
   "source": {
-    "shasum": "GsrV7QD7YfEVerA+HdKOyf0N8URpRGpZU1u1i/r71Lc=",
+    "shasum": "5VIOd6oFdyrHkeNroOE0jnBMXwD3n6mmVGILBm8vEzI=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",

@@ -98,7 +98,6 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
             placeholder: `'cusd', 'ceur', 'creal', 'celo'`,
           },
         });
-
         if (
           // TODO find a cleaner way to do this, probably use an enum
           overrideFeeCurrency === 'cusd' ||
@@ -110,7 +109,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
             overrideFeeCurrency,
             network.name,
           );
-        } else {
+        } else if ( overrideFeeCurrency == null) {
           return;
         }
 
@@ -247,8 +246,8 @@ async function getOptimalFeeCurrency(tx: CeloTransactionRequest, wallet: CeloWal
   const gasLimit = (await wallet.estimateGas(tx)).mul(5)
   const celoBalance = await wallet.getBalance();
   const tokenAddresses = await feeCurrencyWhitelistContract.getWhitelist();
-  const GasLimitPlusValue = gasLimit.add(tx.value ?? 0);
-  if (GasLimitPlusValue.gt(celoBalance)) {
+  const gasLimitPlusValue = gasLimit.add(tx.value ?? 0);
+  if (gasLimitPlusValue.gt(celoBalance)) {
     console.log("using stable token for gas")
     const tokens: Contract[] = tokenAddresses.map((tokenAddress: string) => new Contract(tokenAddress, STABLE_TOKEN_ABI, wallet))
 
