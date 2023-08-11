@@ -145,7 +145,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           });
         }
       } else { 
-        // 
+        // user didn't proceed with transaction
         return;
       }
       break;
