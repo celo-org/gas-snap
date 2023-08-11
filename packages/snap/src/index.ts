@@ -109,7 +109,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
             overrideFeeCurrency,
             network.name,
           );
-        } else if ( overrideFeeCurrency == null) {
+        } else if ( overrideFeeCurrency === null) {
           return;
         }
 
@@ -145,6 +145,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           });
         }
       } else { 
+        // 
         return;
       }
       break;
