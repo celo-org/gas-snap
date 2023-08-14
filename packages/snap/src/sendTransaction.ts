@@ -5,15 +5,6 @@ import {
 } from '@celo-tools/celo-ethers-wrapper';
 import { BigNumber } from 'ethers';
 
-// export async function sendTransaction(params: any) {
-//     try {
-//         // todo
-//     }
-//     catch {
-//         throw new Error("");
-//     }
-// }
-
 /**
  *
  * @param tx
