@@ -1,6 +1,5 @@
 import { CELO_ALFAJORES, CELO_MAINNET } from "../constants";
 
-
 const networks = [{
     "name": CELO_ALFAJORES,
     "chainIdHex": "0xaef3",
@@ -31,3 +30,8 @@ export const getNetwork = (chainId: string): Network => {
     }
     return network[0];
 };
+
+export async function getNetworkConfig(): Promise<Network> {
+    const chainId = await ethereum.request({ method: 'eth_chainId' }) as string
+    return getNetwork(chainId)
+  }
