@@ -1,12 +1,20 @@
-import { OnRpcRequestHandler, SnapsGlobalObject } from '@metamask/snaps-types'
-import { CeloProvider, CeloTransactionRequest, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
-import { getNetworkConfig } from './utils/network'
-import { RequestParamsSchema} from './utils/types'
-import { handleNumber, isInsufficientFundsError } from './utils/utils'
-import {sendTransaction} from './sendTransaction'
-import { getKeyPair } from './getKeyPair'
-import { getFeeCurrencyAddressFromName, getFeeCurrencyNameFromAddress, getOptimalFeeCurrency } from './currency'
-import { invokeSnapDialog } from './utils/snapDialog'
+import { OnRpcRequestHandler, SnapsGlobalObject } from '@metamask/snaps-types';
+import {
+  CeloProvider,
+  CeloTransactionRequest,
+  CeloWallet,
+} from '@celo-tools/celo-ethers-wrapper';
+import { getNetworkConfig } from './utils/network';
+import { RequestParamsSchema } from './utils/types';
+import { handleNumber, isInsufficientFundsError } from './utils/utils';
+import { sendTransaction } from './sendTransaction';
+import { getKeyPair } from './getKeyPair';
+import {
+  getFeeCurrencyAddressFromName,
+  getFeeCurrencyNameFromAddress,
+  getOptimalFeeCurrency,
+} from './currency';
+import { invokeSnapDialog } from './utils/snapDialog';
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -16,22 +24,22 @@ import { invokeSnapDialog } from './utils/snapDialog'
  * invoked the snap.
  * @param args.request - A validated JSON-RPC request object.
  * @returns The result of `snap_dialog`.
- * @throws If the request method is not valid for this snap, or if the request params are invalid. 
+ * @throws If the request method is not valid for this snap, or if the request params are invalid.
  */
-export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
+export const onRpcRequest: OnRpcRequestHandler = async ({
+  origin,
+  request,
+}) => {
   if (!RequestParamsSchema.is(request.params)) {
     await invokeSnapDialog({
       type: 'alert',
-      contentArray: [
-        "Invalid Request!",
-        `${JSON.stringify(request.params)}`
-      ]
+      contentArray: ['Invalid Request!', `${JSON.stringify(request.params)}`],
     });
     return;
-  }  
+  }
 
-  const tx: CeloTransactionRequest = request.params.tx;
-  tx.value = handleNumber(tx.value) // todo find way to do this within io-ts transformation
+  const { tx } = request.params;
+  tx.value = handleNumber(tx.value); // todo find way to do this within io-ts transformation
   const network = await getNetworkConfig();
   const provider = new CeloProvider(network.url);
   const keyPair = await getKeyPair(snap, tx.from);
@@ -52,11 +60,13 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           tx.value ? `value: ${BigInt(tx.value?.toString())} wei` : '',
           tx.chainId ? `chainId: ${tx.chainId}` : '',
           tx.feeCurrency ? `feeCurrency: ${tx.feeCurrency}` : '',
-          tx.gatewayFeeRecipient ? `gatewayFeeRecipient: ${tx.gatewayFeeRecipient}` : '',
-          tx.gatewayFee ? `gatewayFee: ${tx.gatewayFee}` : ''
-        ].filter(Boolean)  // This will remove any empty strings
+          tx.gatewayFeeRecipient
+            ? `gatewayFeeRecipient: ${tx.gatewayFeeRecipient}`
+            : '',
+          tx.gatewayFee ? `gatewayFee: ${tx.gatewayFee}` : '',
+        ].filter(Boolean), // This will remove any empty strings
       });
-      
+
       if (result === true) {
         tx.feeCurrency ??= await getOptimalFeeCurrency(tx, wallet);
         const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(
@@ -69,11 +79,11 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           contentArray: [
             `The suggested gas currency for your tx is ${suggestedFeeCurrency}`,
             `If you would like to use a different gas currency, please enter it below`,
-            `Otherwise, press submit`
+            `Otherwise, press submit`,
           ],
-          placeholder: `'cusd', 'ceur', 'creal', 'celo'`
+          placeholder: `'cusd', 'ceur', 'creal', 'celo'`,
         });
-        
+
         if (
           // TODO find a cleaner way to do this, probably use an enum
           overrideFeeCurrency === 'cusd' ||
@@ -92,30 +102,25 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
           await invokeSnapDialog({
             type: 'alert',
             contentArray: [
-              "Your transaction succeeded!",
-              `${network.explorer}/tx/${txReceipt.transactionHash}`
-            ]
+              'Your transaction succeeded!',
+              `${network.explorer}/tx/${txReceipt.transactionHash}`,
+            ],
           });
-          
         } catch (error) {
           let message = JSON.stringify(error);
 
           if (isInsufficientFundsError(error)) {
-            message =
-              `Oops! Looks like you don't have sufficient funds in the chosen gas currency to complete the operation. Please try again using another currency.`;
+            message = `Oops! Looks like you don't have sufficient funds in the chosen gas currency to complete the operation. Please try again using another currency.`;
           }
 
           await invokeSnapDialog({
             type: 'alert',
-            contentArray: [
-              "Your transaction failed!",
-              `error: ${message}`
-            ]
-          });          
+            contentArray: ['Your transaction failed!', `error: ${message}`],
+          });
         }
       }
 
     default:
       throw new Error('Method not found.');
   }
-}
+};
