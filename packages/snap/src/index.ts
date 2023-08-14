@@ -4,6 +4,7 @@ import {
   CeloTransactionRequest,
   CeloWallet,
 } from '@celo-tools/celo-ethers-wrapper';
+import { constants } from 'ethers';
 import { getNetworkConfig } from './utils/network';
 import { RequestParamsSchema } from './utils/types';
 import { handleNumber, isInsufficientFundsError } from './utils/utils';
@@ -44,6 +45,9 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
   const provider = new CeloProvider(network.url);
   const keyPair = await getKeyPair(snap, tx.from);
   const wallet = new CeloWallet(keyPair.privateKey).connect(provider);
+  if (tx.value == constants.Zero) {
+    delete tx.value;
+  }
 
   switch (request.method) {
     case 'celo_sendTransaction':
@@ -83,7 +87,6 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
           ],
           placeholder: `'cusd', 'ceur', 'creal', 'celo'`,
         });
-
         if (
           // TODO find a cleaner way to do this, probably use an enum
           overrideFeeCurrency === 'cusd' ||
@@ -95,6 +98,8 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
             overrideFeeCurrency,
             network.name,
           );
+        } else if (overrideFeeCurrency === null) {
+          return;
         }
 
         try {
@@ -118,8 +123,10 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
             contentArray: ['Your transaction failed!', `error: ${message}`],
           });
         }
+      } else {
+        // user didn't proceed with transaction
       }
-
+      break;
     default:
       throw new Error('Method not found.');
   }
