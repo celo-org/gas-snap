@@ -1,7 +1,7 @@
 import { OnRpcRequestHandler, SnapsGlobalObject } from '@metamask/snaps-types'
 import { panel, text, copyable } from '@metamask/snaps-ui'
 import { CeloProvider, CeloTransactionRequest, CeloWallet } from '@celo-tools/celo-ethers-wrapper'
-import { Contract, BigNumber, ethers } from 'ethers'
+import { Contract, BigNumber, ethers, constants } from 'ethers'
 import { getBIP44AddressKeyDeriver, BIP44Node , JsonBIP44CoinTypeNode} from '@metamask/key-tree'
 import { Network, getNetwork } from './utils/network'
 import { RequestParamsSchema, SortedOraclesRates, TokenInfo, InsufficientFundsError, KeyPair } from './utils/types'
@@ -46,6 +46,10 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
   const keyPair = await getKeyPair(snap, tx.from);
   const wallet = new CeloWallet(keyPair.privateKey).connect(provider);
   tx.from = tx.from ? tx.from : wallet.address;
+  if (tx.value == constants.Zero) {
+    delete tx.value;
+  }
+
   let panelContent = [
     text('Please approve the following transaction'),
     tx.to && text(`to: ${tx.to}`),
@@ -94,7 +98,6 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
             placeholder: `'cusd', 'ceur', 'creal', 'celo'`,
           },
         });
-
         if (
           // TODO find a cleaner way to do this, probably use an enum
           overrideFeeCurrency === 'cusd' ||
@@ -106,6 +109,8 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
             overrideFeeCurrency,
             network.name,
           );
+        } else if ( overrideFeeCurrency === null) {
+          return;
         }
 
         try {
@@ -139,6 +144,9 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
             },
           });
         }
+      } else { 
+        // user didn't proceed with transaction
+        return;
       }
       break;
     default:
@@ -152,8 +160,7 @@ async function getNetworkConfig(): Promise<Network> {
 }
 
 async function sendTransaction(tx: CeloTransactionRequest, wallet: CeloWallet) {
-  tx.value = BigNumber.from(tx.value) // todo investigate why we get a hex error w/o this.
-  const txResponse = await wallet.sendTransaction({
+ const txResponse = await wallet.sendTransaction({
     ...tx,
     gasLimit: (await wallet.estimateGas(tx)).mul(5),
     gasPrice: await wallet.getGasPrice(tx.feeCurrency)
@@ -240,8 +247,8 @@ async function getOptimalFeeCurrency(tx: CeloTransactionRequest, wallet: CeloWal
   const gasLimit = (await wallet.estimateGas(tx)).mul(5)
   const celoBalance = await wallet.getBalance();
   const tokenAddresses = await feeCurrencyWhitelistContract.getWhitelist();
-
-  if (gasLimit.add(tx.value ?? 0) >= celoBalance) {
+  const gasLimitPlusValue = gasLimit.add(tx.value ?? 0);
+  if (gasLimitPlusValue.gt(celoBalance)) {
     console.log("using stable token for gas")
     const tokens: Contract[] = tokenAddresses.map((tokenAddress: string) => new Contract(tokenAddress, STABLE_TOKEN_ABI, wallet))
 
