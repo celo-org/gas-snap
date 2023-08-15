@@ -26,15 +26,17 @@ export type Network = {
 };
 
 export const getNetwork = (chainId: string): Network => {
-  const network = networks.filter((n: Network) => n.chainIdHex == chainId);
-  if (network.length == 0) {
+  const network = networks.filter((n: Network) => n.chainIdHex === chainId);
+  if (network.length === 0) {
     throw new Error('Unsupported Network');
   }
   return network[0];
 };
 
 /**
+ * Retrieves the network configuration based on the current chain ID from the Ethereum provider.
  *
+ * @returns Promise<Network> A promise that resolves with the network configuration.
  */
 export async function getNetworkConfig(): Promise<Network> {
   const chainId = (await ethereum.request({ method: 'eth_chainId' })) as string;

@@ -4,9 +4,11 @@ import {
 } from '@celo-tools/celo-ethers-wrapper';
 
 /**
+ * Sends a Celo transaction using the provided transaction request and wallet.
  *
- * @param tx
- * @param wallet
+ * @param tx - The Celo transaction request.
+ * @param wallet - The Celo wallet instance.
+ * @returns Promise<providers.TransactionReceipt> A promise that resolves with the transaction receipt after the transaction is mined.
  */
 export async function sendTransaction(
   tx: CeloTransactionRequest,

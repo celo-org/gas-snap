@@ -2,16 +2,20 @@ import { SnapsGlobalObject } from '@metamask/snaps-types';
 import { panel, text } from '@metamask/snaps-ui';
 import {
   getBIP44AddressKeyDeriver,
-  BIP44Node,
   JsonBIP44CoinTypeNode,
 } from '@metamask/key-tree';
 import { KeyPair } from './utils/types';
 
 /**
+ * Retrieves a key pair for a specified address or index using the given SnapsGlobalObject.
+ * If an address is provided, the function searches for the corresponding key pair.
+ * If no address is provided, the function retrieves the key pair at the specified index.
  *
- * @param snap
- * @param address
- * @param addressIndex
+ * @param snap - The SnapsGlobalObject instance.
+ * @param address - The target address to retrieve the key pair for (optional).
+ * @param addressIndex - The index of the address key pair to retrieve (default is 0).
+ * @returns Promise<KeyPair> A promise that resolves with the retrieved key pair.
+ * @throws {Error} If the private key for the specified address cannot be located.
  */
 export async function getKeyPair(
   snap: SnapsGlobalObject,
@@ -34,20 +38,20 @@ export async function getKeyPair(
   })) as JsonBIP44CoinTypeNode;
 
   const addressKeyDeriver = await getBIP44AddressKeyDeriver(bip44Node, {
-    account: parseInt(account),
-    change: parseInt(change),
+    account: parseInt(account, 10),
+    change: parseInt(change, 10),
   });
 
   if (address) {
     let search;
     do {
       search = await addressKeyDeriver(Number(_addressIndex));
-      if (search.address.toLowerCase() == address.toLowerCase()) {
+      if (search.address.toLowerCase() === address.toLowerCase()) {
         derivedKey = search;
       }
       _addressIndex += 1;
     } while (
-      address.toLowerCase() != search.address.toLowerCase() &&
+      address.toLowerCase() !== search.address.toLowerCase() &&
       _addressIndex <= MAX_SEARCH_DEPTH
     );
   } else {
@@ -71,7 +75,7 @@ export async function getKeyPair(
 
   return {
     address: derivedKey.address,
-    privateKey: derivedKey.privateKey,
+    privateKey: derivedKey.privateKey || '',
     publicKey: derivedKey.publicKey,
   };
 }

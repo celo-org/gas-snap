@@ -25,13 +25,13 @@ async function connect() {
 
   if (result) {
     // user is now connected
-    console.log("connected")
+    console.log('connected');
   }
 }
-  
 ```
 
 ### Simple Transfer Example
+
 Once connected, you can call the RPC method exposed in this snap as follows:
 
 ```javascript
@@ -56,13 +56,15 @@ Once connected, you can call the RPC method exposed in this snap as follows:
 });
 
 console.log(result);
-  
+
 ```
+
 MetaMask will automatically fetch the Snap from the npm registry.
 
 Please refer to the documentation for more about the parameters field https://docs.metamask.io/snaps/reference/rpc-api/#example-1
 
 ### More Generic Transaction Example
+
 This example shows how one can use the snap to send a more generic transaction.
 
 ```javascript
@@ -92,12 +94,12 @@ This example shows how one can use the snap to send a more generic transaction.
       },
     },
   });
-  
+
 ```
 
 ## Publishing a new version of the Snap.
 
-In other to update the snap to publish a new change, Update the `version` tag in both `packages/snap/snap.config.js` and `packages/snap/pakcage.json` to the same. Then from you console run the following commands. 
+In other to update the snap to publish a new change, Update the `version` tag in both `packages/snap/snap.config.js` and `packages/snap/package.json` to the same. Then from you console run the following commands.
 
 Note: You must be logged into NPM on your terminal as well as added to the celo organization on npm.
 
@@ -108,6 +110,7 @@ npm publish --access public
 ```
 
 ## Register a new coin type.
+
 To Register a new coin type, add a new entry `snap_getBip44Entropy` with the desired coin type.
 See list for reference.
 https://github.com/satoshilabs/slips/blob/master/slip-0044.md
