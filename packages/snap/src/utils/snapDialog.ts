@@ -25,17 +25,14 @@ export async function invokeSnapDialog({
   // Construct the content for the panel using the contentArray
   const panelContent = contentArray.map((content) => text(content));
 
-  // Construct the basic dialog request object
   const dialogRequest: any = {
     method: 'snap_dialog',
     params: {
       type,
       content: panel(panelContent),
-      placeholder: '',
     },
   };
 
-  // If it's a prompt type and a placeholder is provided, add it to the request
   if (type === 'prompt' && placeholder) {
     dialogRequest.params.placeholder = placeholder;
   }
