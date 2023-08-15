@@ -10,13 +10,16 @@ import { REGISTRY_ABI } from './abis/Registry';
 import { SORTED_ORACLES_ABI } from './abis/SortedOracles';
 import { FEE_CURRENCY_WHITELIST_ABI } from './abis/FeeCurrencyWhitelist';
 import { SortedOraclesRates, TokenInfo } from './utils/types';
-import { STABLE_TOKEN_ABI } from './abis/stableToken';
+import { STABLE_TOKEN_ABI } from './abis/StableToken';
 
 // contract to also store currency name.
 /**
+ * Retrieves the corresponding fee currency name based on the provided fee currency address and network.
  *
- * @param feeCurrencyAddress
- * @param network
+ * @param feeCurrencyAddress - The fee currency address.
+ * @param network - The network (CELO_ALFAJORES or CELO_MAINNET).
+ * @returns The corresponding fee currency name.
+ * @throws {Error} If the fee currency address or network is not recognized.
  */
 export function getFeeCurrencyNameFromAddress(
   feeCurrencyAddress: string | undefined,
@@ -61,16 +64,19 @@ export function getFeeCurrencyNameFromAddress(
 }
 
 /**
+ * Retrieves the corresponding fee currency address based on the provided fee currency name and network.
  *
- * @param feeCurrencyName
- * @param network
+ * @param feeCurrencyName - The fee currency name ('celo', 'cusd', 'ceur', or 'creal').
+ * @param network - The network (CELO_ALFAJORES or CELO_MAINNET).
+ * @returns The corresponding fee currency address, or undefined if not applicable.
+ * @throws {Error} If the fee currency name or network is not recognized.
  */
 export function getFeeCurrencyAddressFromName(
   feeCurrencyName: string,
   network: string,
 ): string | undefined {
   switch (network) {
-    case CELO_ALFAJORES:
+    case CELO_ALFAJORES: {
       switch (feeCurrencyName) {
         case 'celo':
           return undefined;
@@ -85,6 +91,7 @@ export function getFeeCurrencyAddressFromName(
             `Fee currency string ${feeCurrencyName} not recognized. Must be either 'celo', 'cusd', 'ceur' or 'creal'.`,
           );
       }
+    }
 
     case CELO_MAINNET:
       switch (feeCurrencyName) {
@@ -101,22 +108,24 @@ export function getFeeCurrencyAddressFromName(
             `Fee currency string ${feeCurrencyName} not recognized. Must be either 'celo', 'cusd', 'ceur' or 'creal'.`,
           );
       }
+
+    default:
+      return undefined;
   }
 }
 
 /**
- * Finds the optimal gas currency to send a transaction with based on user balances. 
- * This may differ from the feeCurrency specified in the transaction body. 
- * 
- * The returned feeCurrency will be Celo if the user has enough balance 
- * to pay for the transaction in Celo, as native transactions are cheaper. 
- * Otherwise, the returned feeCurrency will be whichever one the user would 
+ * Finds the optimal gas currency to send a transaction with based on user balances.
+ * This may differ from the feeCurrency specified in the transaction body.
+ *
+ * The returned feeCurrency will be Celo if the user has enough balance
+ * to pay for the transaction in Celo, as native transactions are cheaper.
+ * Otherwise, the returned feeCurrency will be whichever one the user would
  * have the greatest balance in after sending the transaction.
  *
- * @param tx - The transaction to select the optimal gas currency for
- * @param wallet
- * @returns - The address of the optimal feeCurrency, or undefined if the optimal 
- * feeCurrency is Celo. 
+ * @param tx - The transaction to select the optimal gas currency for.
+ * @param wallet - The wallet.
+ * @returns The address of the optimal feeCurrency, or undefined if the optimal feeCurrency is Celo.
  */
 export async function getOptimalFeeCurrency(
   tx: CeloTransactionRequest,

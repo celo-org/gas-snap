@@ -1,9 +1,5 @@
-import { OnRpcRequestHandler, SnapsGlobalObject } from '@metamask/snaps-types';
-import {
-  CeloProvider,
-  CeloTransactionRequest,
-  CeloWallet,
-} from '@celo-tools/celo-ethers-wrapper';
+import { OnRpcRequestHandler } from '@metamask/snaps-types';
+import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper';
 import { constants } from 'ethers';
 import { getNetworkConfig } from './utils/network';
 import { RequestParamsSchema } from './utils/types';
@@ -21,16 +17,12 @@ import { invokeSnapDialog } from './utils/snapDialog';
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
  *
  * @param args - The request handler args as object.
- * @param args.origin - The origin of the request, e.g., the website that
  * invoked the snap.
  * @param args.request - A validated JSON-RPC request object.
  * @returns The result of `snap_dialog`.
  * @throws If the request method is not valid for this snap, or if the request params are invalid.
  */
-export const onRpcRequest: OnRpcRequestHandler = async ({
-  origin,
-  request,
-}) => {
+export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
   if (!RequestParamsSchema.is(request.params)) {
     await invokeSnapDialog({
       type: 'alert',
@@ -45,12 +37,12 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
   const provider = new CeloProvider(network.url);
   const keyPair = await getKeyPair(snap, tx.from);
   const wallet = new CeloWallet(keyPair.privateKey).connect(provider);
-  if (tx.value == constants.Zero) {
+  if (tx.value === constants.Zero) {
     delete tx.value;
   }
 
   switch (request.method) {
-    case 'celo_sendTransaction':
+    case 'celo_sendTransaction': {
       const result = await invokeSnapDialog({
         type: 'confirmation',
         contentArray: [
@@ -127,6 +119,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
         // user didn't proceed with transaction
       }
       break;
+    }
     default:
       throw new Error('Method not found.');
   }

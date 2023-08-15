@@ -9,11 +9,13 @@ type SnapDialogOptions = {
 };
 
 /**
+ * Invokes a Snap dialog with the specified options and content.
  *
- * @param options0
- * @param options0.type
- * @param options0.contentArray
- * @param options0.placeholder
+ * @param options0 - Snap dialog options.
+ * @param options0.type - Snap dialog type.
+ * @param options0.contentArray - Snap dialog content array.
+ * @param options0.placeholder - Snap dialog placeholder.
+ * @returns A promise that resolves with the response from the Snap dialog..
  */
 export async function invokeSnapDialog({
   type,
@@ -24,11 +26,12 @@ export async function invokeSnapDialog({
   const panelContent = contentArray.map((content) => text(content));
 
   // Construct the basic dialog request object
-  const dialogRequest = {
+  const dialogRequest: any = {
     method: 'snap_dialog',
     params: {
       type,
       content: panel(panelContent),
+      placeholder: '',
     },
   };
 
