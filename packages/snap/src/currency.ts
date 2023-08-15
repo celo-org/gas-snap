@@ -110,7 +110,7 @@ export function getFeeCurrencyAddressFromName(
       }
 
     default:
-      return undefined;
+      throw new Error('Unknown Network.');
   }
 }
 

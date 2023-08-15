@@ -115,8 +115,6 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
             contentArray: ['Your transaction failed!', `error: ${message}`],
           });
         }
-      } else {
-        // user didn't proceed with transaction
       }
       break;
     }
