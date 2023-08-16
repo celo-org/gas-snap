@@ -37,6 +37,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
   const provider = new CeloProvider(network.url);
   const keyPair = await getKeyPair(snap, tx.from);
   const wallet = new CeloWallet(keyPair.privateKey).connect(provider);
+  tx.from = tx.from ? tx.from : wallet.address;
   if (tx.value === constants.Zero) {
     delete tx.value;
   }
