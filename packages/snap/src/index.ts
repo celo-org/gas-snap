@@ -104,6 +104,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
               `${network.explorer}/tx/${txReceipt.transactionHash}`,
             ],
           });
+          return txReceipt.transactionHash;
         } catch (error) {
           let message = JSON.stringify(error);
 
