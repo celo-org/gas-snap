@@ -12,6 +12,7 @@ import {
   getOptimalFeeCurrency,
 } from './currency';
 import { invokeSnapDialog } from './utils/snapDialog';
+import { INSUFFICIENT_FUNDS_MESSAGE, INVALID_CURRENCY_MESSAGE, REJECTION_MESSAGE, VALID_CURRENCIES } from './constants';
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -32,7 +33,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
   }
 
   const { tx } = request.params;
-  tx.value = handleNumber(tx.value); // todo find way to do this within io-ts transformation
+  tx.value = handleNumber(tx.value);
   const network = await getNetworkConfig();
   const provider = new CeloProvider(network.url);
   const keyPair = await getKeyPair(snap, tx.from);
@@ -43,28 +44,33 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
   }
 
   switch (request.method) {
-    case 'celo_sendTransaction': {
-      const result = await invokeSnapDialog({
-        type: 'confirmation',
-        contentArray: [
-          'Please approve the following transaction',
-          tx.to ? `to: ${tx.to}` : '',
-          tx.from ? `from: ${tx.from}` : '',
-          tx.nonce ? `nonce: ${tx.nonce}` : '',
-          tx.gasLimit ? `gasLimit: ${tx.gasLimit}` : '',
-          tx.gasPrice ? `gasPrice: ${tx.gasPrice}` : '',
-          tx.data ? `data: ${tx.data}` : '',
-          tx.value ? `value: ${BigInt(tx.value?.toString())} wei` : '',
-          tx.chainId ? `chainId: ${tx.chainId}` : '',
-          tx.feeCurrency ? `feeCurrency: ${tx.feeCurrency}` : '',
-          tx.gatewayFeeRecipient
-            ? `gatewayFeeRecipient: ${tx.gatewayFeeRecipient}`
-            : '',
-          tx.gatewayFee ? `gatewayFee: ${tx.gatewayFee}` : '',
-        ].filter(Boolean), // This will remove any empty strings
-      });
+    case 'celo_sendTransaction':
+      {
+        const result = await invokeSnapDialog({
+          type: 'confirmation',
+          contentArray: [
+            'Please approve the following transaction',
+            tx.to ? `to: ${tx.to}` : '',
+            tx.from ? `from: ${tx.from}` : '',
+            tx.nonce ? `nonce: ${tx.nonce}` : '',
+            tx.gasLimit ? `gasLimit: ${tx.gasLimit}` : '',
+            tx.gasPrice ? `gasPrice: ${tx.gasPrice}` : '',
+            tx.data ? `data: ${tx.data}` : '',
+            tx.value ? `value: ${BigInt(tx.value?.toString())} wei` : '',
+            tx.chainId ? `chainId: ${tx.chainId}` : '',
+            tx.feeCurrency ? `feeCurrency: ${tx.feeCurrency}` : '',
+            tx.gatewayFeeRecipient
+              ? `gatewayFeeRecipient: ${tx.gatewayFeeRecipient}`
+              : '',
+            tx.gatewayFee ? `gatewayFee: ${tx.gatewayFee}` : '',
+          ].filter(Boolean), // This will remove any empty strings
+        });
 
-      if (result === true) {
+        if (result === false) {
+          // user did not proceed approve the request in the tx summary screen
+          throw new Error(REJECTION_MESSAGE);
+        }
+
         tx.feeCurrency ??= await getOptimalFeeCurrency(tx, wallet);
         const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(
           tx.feeCurrency,
@@ -74,25 +80,25 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
         const overrideFeeCurrency = await invokeSnapDialog({
           type: 'prompt',
           contentArray: [
-            `The suggested gas currency for your tx is ${suggestedFeeCurrency}`,
+            `The suggested gas currency for your tx is [${suggestedFeeCurrency.toUpperCase()}]`,
             `If you would like to use a different gas currency, please enter it below`,
             `Otherwise, press submit`,
           ],
-          placeholder: `'cusd', 'ceur', 'creal', 'celo'`,
+          placeholder: `cusd, ceur, creal, celo`,
         });
-        if (
-          // TODO find a cleaner way to do this, probably use an enum
-          overrideFeeCurrency === 'cusd' ||
-          overrideFeeCurrency === 'ceur' ||
-          overrideFeeCurrency === 'creal' ||
-          overrideFeeCurrency === 'celo'
-        ) {
+
+        if (VALID_CURRENCIES.includes(overrideFeeCurrency.toLowerCase())) {
           tx.feeCurrency = getFeeCurrencyAddressFromName(
-            overrideFeeCurrency,
+            overrideFeeCurrency.toLowerCase(),
             network.name,
           );
-        } else if (overrideFeeCurrency === null) {
-          return;
+        } else {
+          // user either rejected the request in the currency screen or entered an invalid currency
+          throw new Error(
+            overrideFeeCurrency === null
+              ? REJECTION_MESSAGE
+              : INVALID_CURRENCY_MESSAGE,
+          );
         }
 
         try {
@@ -109,7 +115,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
           let message = JSON.stringify(error);
 
           if (isInsufficientFundsError(error)) {
-            message = `Oops! Looks like you don't have sufficient funds in the chosen gas currency to complete the operation. Please try again using another currency.`;
+            message = INSUFFICIENT_FUNDS_MESSAGE;
           }
 
           await invokeSnapDialog({
@@ -119,7 +125,6 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
         }
       }
       break;
-    }
     default:
       throw new Error('Method not found.');
   }
