@@ -3,7 +3,7 @@ import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper';
 import { constants } from 'ethers';
 import { getNetworkConfig } from './utils/network';
 import { RequestParamsSchema } from './utils/types';
-import { handleNumber, isInsufficientFundsError } from './utils/utils';
+import { handleNumber } from './utils/utils';
 import { sendTransaction } from './sendTransaction';
 import { getKeyPair } from './getKeyPair';
 import {
@@ -12,7 +12,12 @@ import {
   getOptimalFeeCurrency,
 } from './currency';
 import { invokeSnapDialog } from './utils/snapDialog';
-import { INSUFFICIENT_FUNDS_MESSAGE, INVALID_CURRENCY_MESSAGE, REJECTION_MESSAGE, VALID_CURRENCIES } from './constants';
+import {
+  INSUFFICIENT_FUNDS_MESSAGE,
+  INVALID_CURRENCY_MESSAGE,
+  REJECTION_MESSAGE,
+  VALID_CURRENCIES,
+} from './constants';
 
 /**
  * Handle incoming JSON-RPC requests, sent through `wallet_invokeSnap`.
@@ -107,21 +112,19 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
             type: 'alert',
             contentArray: [
               'Your transaction succeeded!',
-              `${network.explorer}/tx/${txReceipt.transactionHash}`,
+              `${network.explorer}/tx/${txReceipt?.transactionHash}`,
             ],
           });
-          return txReceipt.transactionHash;
-        } catch (error) {
-          let message = JSON.stringify(error);
-
-          if (isInsufficientFundsError(error)) {
-            message = INSUFFICIENT_FUNDS_MESSAGE;
-          }
-
+          return txReceipt?.transactionHash;
+        } catch (e) {
+          const message = (e as Error).message.includes('insufficient funds')
+            ? INSUFFICIENT_FUNDS_MESSAGE
+            : (e as Error).message;
           await invokeSnapDialog({
             type: 'alert',
             contentArray: ['Your transaction failed!', `error: ${message}`],
           });
+          throw new Error(message);
         }
       }
       break;
