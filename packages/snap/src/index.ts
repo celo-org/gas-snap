@@ -91,8 +91,8 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
           ],
           placeholder: `cusd, ceur, creal, celo`,
         });
-
-        if (VALID_CURRENCIES.includes(overrideFeeCurrency.toLowerCase())) {
+        console.log(overrideFeeCurrency === '')
+        if (overrideFeeCurrency !== '' && VALID_CURRENCIES.includes(overrideFeeCurrency.toLowerCase())) {
           tx.feeCurrency = getFeeCurrencyAddressFromName(
             overrideFeeCurrency.toLowerCase(),
             network.name,
