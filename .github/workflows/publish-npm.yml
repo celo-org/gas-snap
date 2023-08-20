@@ -1,31 +1,19 @@
-name: NPM Publish
-
+name: "NPM Publish"
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'packages/snap/src/**'
+  release:
+    types: [published]
+#  pull_request:
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  NPM-Publish:
+    permissions: # Must change the job token permissions to use JWT auth
+      contents: read
+      id-token: write
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '16.x'
-
-      - name: Install dependencies
-        run: yarn install --immutable
-      - name: Publish to NPM
-        run: |
-          cd packages/snap
-          npm config set //registry.npmjs.org/:_authToken=$NPM_TOKEN
-          npm publish --access public
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    uses: celo-org/reusable-workflows/.github/workflows/npm-publish.yaml@v1.10.5
+    with:
+      node-version: 16
+      package-dir: "packages/snap"
+      akeyless-api-gateway: https://api.gateway.akeyless.celo-networks-dev.org
+      akeyless-github-access-id:  <TODO>
+      akeyless-token-path: <TODO>
