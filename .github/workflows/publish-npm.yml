@@ -2,11 +2,10 @@ name: 'NPM Publish'
 on:
   release:
     types: [published]
-#  pull_request:
 
 jobs:
   NPM-Publish:
-    permissions: # Must change the job token permissions to use JWT auth
+    permissions:
       contents: read
       id-token: write
 
