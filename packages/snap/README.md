@@ -99,7 +99,7 @@ This example shows how one can use the snap to send a more generic transaction.
 
 ## Publishing a new version of the Snap.
 
-In other to update the snap to publish a new change, Update the `version` tag in both `packages/snap/snap.config.js` and `packages/snap/package.json` to the same. 
+In other to update the snap to publish a new change, Update the `version` tag in both `packages/snap/snap.config.js` and `packages/snap/package.json` to the same.
 
 Next create a new Release:
 You can do this by going to the "Releases" tab, then clicking the "Create a new release" button.
@@ -110,7 +110,6 @@ Describe the release: Add any release notes, changelog information, or details a
 Choose "Publish release" to create the release.
 
 Action should automatically trigger the job.
-
 
 ## Register a new coin type.
 
