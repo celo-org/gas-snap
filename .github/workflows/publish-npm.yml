@@ -1,4 +1,4 @@
-name: "NPM Publish"
+name: 'NPM Publish'
 on:
   release:
     types: [published]
@@ -13,7 +13,7 @@ jobs:
     uses: celo-org/reusable-workflows/.github/workflows/npm-publish.yaml@v1.11.1
     with:
       node-version: 16
-      package-dir: "packages/snap"
+      package-dir: 'packages/snap'
       akeyless-api-gateway: https://api.gateway.akeyless.celo-networks-dev.org
       akeyless-github-access-id: p-kf9vjzruht6l
       akeyless-token-path: /static-secrets/apps-tooling-circle/npm-publish-token
