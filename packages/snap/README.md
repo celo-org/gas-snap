@@ -99,15 +99,17 @@ This example shows how one can use the snap to send a more generic transaction.
 
 ## Publishing a new version of the Snap.
 
-In other to update the snap to publish a new change, Update the `version` tag in both `packages/snap/snap.config.js` and `packages/snap/package.json` to the same. Then from you console run the following commands.
+In other to update the snap to publish a new change, Update the `version` tag in both `packages/snap/snap.config.js` and `packages/snap/package.json` to the same.
 
-Note: You must be logged into NPM on your terminal as well as added to the celo organization on npm.
+Next create a new Release:
+You can do this by going to the "Releases" tab, then clicking the "Create a new release" button.
 
-```
-cd packages/snap
+Tag version: Specify the version number, such as v1.0.0 ( keep this consistent with those above )
+Release title: Provide a descriptive title for the release.
+Describe the release: Add any release notes, changelog information, or details about what's included in this release.
+Choose "Publish release" to create the release.
 
-npm publish --access public
-```
+Action should automatically trigger the job.
 
 ## Register a new coin type.
 
