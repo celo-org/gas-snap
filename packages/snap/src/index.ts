@@ -1,6 +1,6 @@
 import { OnRpcRequestHandler } from '@metamask/snaps-types';
 import { CeloProvider, CeloWallet } from '@celo-tools/celo-ethers-wrapper';
-import { constants } from 'ethers';
+import { constants, Contract } from 'ethers';
 import { getNetworkConfig } from './utils/network';
 import { RequestParamsSchema } from './utils/types';
 import { handleNumber } from './utils/utils';
@@ -76,7 +76,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
           throw new Error(REJECTION_MESSAGE);
         }
 
-        tx.feeCurrency ??= await getOptimalFeeCurrency(tx, wallet);
+        tx.feeCurrency ??= await getOptimalFeeCurrency(tx, wallet, Contract);
         const suggestedFeeCurrency = getFeeCurrencyNameFromAddress(
           tx.feeCurrency,
           network.name,
