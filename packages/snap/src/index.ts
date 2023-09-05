@@ -82,7 +82,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
           network.name,
         );
 
-        const overrideFeeCurrency = await invokeSnapDialog({
+        let overrideFeeCurrency = await invokeSnapDialog({
           type: 'prompt',
           contentArray: [
             `The suggested gas currency for your tx is [${suggestedFeeCurrency.toUpperCase()}]`,
@@ -91,8 +91,10 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
           ],
           placeholder: `cusd, ceur, creal, celo`,
         });
-        console.log(overrideFeeCurrency === '')
-        if (overrideFeeCurrency !== '' && VALID_CURRENCIES.includes(overrideFeeCurrency.toLowerCase())) {
+        if(overrideFeeCurrency === '') {
+          overrideFeeCurrency = suggestedFeeCurrency
+        }
+        if ( VALID_CURRENCIES.includes(overrideFeeCurrency.toLowerCase()) ) {
           tx.feeCurrency = getFeeCurrencyAddressFromName(
             overrideFeeCurrency.toLowerCase(),
             network.name,
@@ -105,7 +107,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
               : INVALID_CURRENCY_MESSAGE,
           );
         }
-
+        console.log('tx.feeCurrency', tx.feeCurrency);
         try {
           const txReceipt = await sendTransaction(tx, wallet);
           await invokeSnapDialog({
