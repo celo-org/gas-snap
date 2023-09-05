@@ -130,6 +130,7 @@ export function getFeeCurrencyAddressFromName(
 export async function getOptimalFeeCurrency(
   tx: CeloTransactionRequest,
   wallet: CeloWallet,
+  Contract: any,
 ): Promise<string | undefined> {
   const registry = new Contract(REGISTRY_ADDRESS, REGISTRY_ABI, wallet);
   const sortedOraclesAddress = await registry.getAddressForString(
