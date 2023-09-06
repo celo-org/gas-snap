@@ -149,9 +149,10 @@ export async function getOptimalFeeCurrency(
     wallet,
   );
   const gasLimit = (await wallet.estimateGas(tx)).mul(5);
+  const gasPrice = await wallet.getGasPrice();
   const celoBalance = await wallet.getBalance();
   const tokenAddresses = await feeCurrencyWhitelistContract.getWhitelist();
-  const gasLimitPlusValue = gasLimit.add(tx.value ?? 0);
+  const gasLimitPlusValue = gasLimit.mul(gasPrice).add(tx.value ?? 0);
   if (gasLimitPlusValue.gt(celoBalance)) {
     console.log('using stable token for gas');
     const tokens: Contract[] = tokenAddresses.map(
