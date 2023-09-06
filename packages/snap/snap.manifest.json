@@ -1,5 +1,5 @@
 {
-  "version": "0.5.6-alpha.1",
+  "version": "0.5.6-alpha.2",
   "description": "An example Snap written in TypeScript.",
   "proposedName": "Celo Gas Snap",
   "repository": {
@@ -7,7 +7,7 @@
     "url": "https://github.com/celo-org/gas-snap.git"
   },
   "source": {
-    "shasum": "813VSdbqA0zMg8GLCTRFQqTR2G0jZJzjr3HZveLX344=",
+    "shasum": "6aOtQKHS3CanzoiGnYkCskSTCs6h7nG3uBFKS7I8m98=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",

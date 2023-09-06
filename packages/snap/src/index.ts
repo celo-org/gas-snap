@@ -91,10 +91,11 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
           ],
           placeholder: `cusd, ceur, creal, celo`,
         });
-        if(overrideFeeCurrency === '') {
-          overrideFeeCurrency = suggestedFeeCurrency
+        if (overrideFeeCurrency === '') {
+          overrideFeeCurrency = suggestedFeeCurrency;
         }
-        if ( VALID_CURRENCIES.includes(overrideFeeCurrency.toLowerCase()) ) {
+
+        if (VALID_CURRENCIES.includes(overrideFeeCurrency.toLowerCase())) {
           tx.feeCurrency = getFeeCurrencyAddressFromName(
             overrideFeeCurrency.toLowerCase(),
             network.name,
@@ -117,6 +118,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
               `${network.explorer}/tx/${txReceipt?.transactionHash}`,
             ],
           });
+          // eslint-disable-next-line consistent-return
           return txReceipt?.transactionHash;
         } catch (e) {
           const message = (e as Error).message.includes('insufficient funds')
