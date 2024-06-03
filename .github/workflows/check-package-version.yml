@@ -21,11 +21,11 @@ jobs:
 
       - name: Get version from main branch
         id: get_version_main
-        run: echo "::set-output name=version::$(git show HEAD~1:package.json | grep '"version":'  | cut -d '"' -f 4)"
+        run: echo "::set-output name=version::$(git show HEAD~1:packages/snap/package.json | grep '"version":'  | cut -d '"' -f 4)"
 
       - name: Get version from PR branch
         id: get_version_pr
-        run: echo "::set-output name=version::$(grep '"version":' package.json | cut -d '"' -f 4)"
+        run: echo "::set-output name=version::$(grep '"version":' packages/snap/package.json | cut -d '"' -f 4)"
 
       - name: Compare versions and prevent merging if the same
         run: |
