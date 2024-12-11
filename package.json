@@ -38,7 +38,7 @@
     "eslint-plugin-import": "^2.26.0",
     "eslint-plugin-jest": "^26.8.2",
     "eslint-plugin-jsdoc": "^39.2.9",
-    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-n": "^14.0.0",
     "eslint-plugin-prettier": "^4.2.1",
     "fp-ts": "^2.16.0",
     "io-ts": "^2.2.20",
