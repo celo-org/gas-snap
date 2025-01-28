@@ -2,17 +2,25 @@ name: 'NPM Publish'
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      checkAuthOnly:
+          description: 'For checking that auth works'
+          required: true
+          type: choice
+          options: 
+            - yes
 
 jobs:
   NPM-Publish:
     permissions:
       contents: read
       id-token: write
-
-    uses: celo-org/reusable-workflows/.github/workflows/npm-publish.yaml@v1.11.1
+    uses: celo-org/reusable-workflows/.github/workflows/npm-publish.yaml@v2.0.4
     with:
       node-version: 16
       package-dir: 'packages/snap'
       akeyless-api-gateway: https://api.gateway.akeyless.celo-networks-dev.org
       akeyless-github-access-id: p-kf9vjzruht6l
       akeyless-token-path: /static-secrets/NPM/npm-publish-token
+      check-auth-only: ${{ inputs.checkAuthOnly == 'yes' && true || false  }}
