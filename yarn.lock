@@ -10163,8 +10163,8 @@ __metadata:
   linkType: hard
 
 "gatsby@npm:^4.24.4":
-  version: 4.25.6
-  resolution: "gatsby@npm:4.25.6"
+  version: 4.25.8
+  resolution: "gatsby@npm:4.25.8"
   dependencies:
     "@babel/code-frame": ^7.14.0
     "@babel/core": ^7.15.5
@@ -10340,7 +10340,7 @@ __metadata:
       optional: true
   bin:
     gatsby: ./cli.js
-  checksum: ea38242cd811464f8c08c869750d33615b53ca7b2fb7a6ac7bb753a27767dd5cbc080579c0e269873214ddcc07c5078b702bc614192c48a70cf062da6075e9ba
+  checksum: 7e33ab770ba9d1951f0554add82403dbffff6ca91b460adefd9333f5a7bf4d38b13ef5b53ef0535669967890f0bc659ad2df6984d5716c579c454f6dedc929cd
   languageName: node
   linkType: hard
 
